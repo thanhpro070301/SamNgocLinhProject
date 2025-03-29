@@ -61,6 +61,11 @@ public class AuthService {
                     log.warn("Không tìm thấy người dùng '{}'", username);
                     return new ResponseStatusException(HttpStatus.BAD_REQUEST, "Không tìm thấy người dùng!");
                 });
+        // Kiểm tra nếu user đã có session trước đó
+        sessionRepository.findByToken(user.getId().toString()).ifPresent(session -> {
+            log.info("Xóa session cũ của người dùng '{}'", username);
+            sessionRepository.delete(session);
+        });
 
         if (!passwordEncoder.matches(password, user.getPassword())) {
             log.warn("Mật khẩu không đúng cho người dùng '{}'", username);

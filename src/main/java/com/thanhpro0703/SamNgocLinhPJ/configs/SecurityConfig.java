@@ -13,7 +13,6 @@ public class SecurityConfig {
         http
                 .csrf(csrf -> csrf.disable()) // Tắt CSRF theo cách mới
                 .authorizeHttpRequests(auth -> auth.anyRequest().permitAll());
-
         return http.build();
     }
 

@@ -11,27 +11,8 @@ import java.util.Optional;
 @RequestMapping("/api/sessions")
 @RequiredArgsConstructor
 public class SessionController {
-
     private final SessionService sessionService;
     private final AuthService authService;
-
-    @GetMapping("/hello")
-    public String sayHello() {
-        System.out.println("Hello from /api/sessions/hello");
-        return "Hello!";
-    }
-
-    @PostMapping("/login")
-    public ResponseEntity<String> login(@RequestParam String username, @RequestParam String password) {
-        Optional<UserEntity> userOpt = authService.authenticate(username, password);
-
-        if (userOpt.isEmpty()) {
-            return ResponseEntity.status(401).body("Sai tên đăng nhập hoặc mật khẩu!");
-        }
-
-        String token = sessionService.createSession(userOpt.get());
-        return ResponseEntity.ok(token);
-    }
 
     @GetMapping("/status")
     public ResponseEntity<String> checkSession(@RequestHeader(value = "Authorization", required = false) String authorizationHeader) {
@@ -52,8 +33,6 @@ public class SessionController {
             return ResponseEntity.status(401).body("Session không hợp lệ hoặc đã hết hạn.");
         }
     }
-
-
 
 
     @PostMapping("/logout")
