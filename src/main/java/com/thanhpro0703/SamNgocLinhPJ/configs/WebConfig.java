@@ -9,12 +9,12 @@ import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 @RequiredArgsConstructor
 public class WebConfig implements WebMvcConfigurer {
 
-    private final AuthenticationInterceptor authenticationInterceptor;
-
-    @Override
-    public void addInterceptors(InterceptorRegistry registry) {
-        registry.addInterceptor(authenticationInterceptor)
-                .addPathPatterns("/api/**")  // Áp dụng interceptor cho tất cả API
-                .excludePathPatterns("/api/auth/**"); // Không chặn API đăng nhập/đăng ký
-    }
+//    private final AuthenticationInterceptor authenticationInterceptor;
+//
+//    @Override
+//    public void addInterceptors(InterceptorRegistry registry) {
+//        registry.addInterceptor(authenticationInterceptor)
+//                .addPathPatterns("/api/**")  // Áp dụng interceptor cho tất cả API
+//                .excludePathPatterns("/api/auth/**"); // Không chặn API đăng nhập/đăng ký
+//    }
 }

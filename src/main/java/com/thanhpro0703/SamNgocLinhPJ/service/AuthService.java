@@ -1,5 +1,4 @@
 package com.thanhpro0703.SamNgocLinhPJ.service;
-
 import com.thanhpro0703.SamNgocLinhPJ.entity.Role;
 import com.thanhpro0703.SamNgocLinhPJ.entity.SessionEntity;
 import com.thanhpro0703.SamNgocLinhPJ.entity.UserEntity;
@@ -78,6 +77,8 @@ public class AuthService {
 
         sessionRepository.save(session);
         log.info("Người dùng '{}' đã đăng nhập, token được tạo.", username);
+        log.info("Token '{}'.", token);
+
         return token;
     }
 
