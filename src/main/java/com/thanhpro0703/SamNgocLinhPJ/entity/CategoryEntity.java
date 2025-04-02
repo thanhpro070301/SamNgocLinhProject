@@ -1,13 +1,9 @@
 package com.thanhpro0703.SamNgocLinhPJ.entity;
-
 import com.fasterxml.jackson.annotation.JsonManagedReference;
 import com.thanhpro0703.SamNgocLinhPJ.entity.base.BaseEntity;
 import com.thanhpro0703.SamNgocLinhPJ.utils.StringFormatterUtil;
 import jakarta.persistence.*;
 import lombok.*;
-import org.hibernate.annotations.CreationTimestamp;
-import org.hibernate.annotations.UpdateTimestamp;
-import java.time.LocalDateTime;
 import java.util.List;
 
 @Entity

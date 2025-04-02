@@ -14,20 +14,20 @@ import java.util.List;
 public class ProductController {
     private final ProductService productService;
 
-    // ✅ Lấy danh sách sản phẩm (Trả về DTO)
+    // Lấy danh sách sản phẩm (Trả về DTO)
     @GetMapping
     public ResponseEntity<List<ProductDTO>> getAllProducts() {
         return ResponseEntity.ok(productService.getAllProducts());
     }
 
-    // ✅ Lấy sản phẩm theo ID (Trả về DTO)
+    // Lấy sản phẩm theo ID (Trả về DTO)
     @GetMapping("/{id}")
     public ResponseEntity<ProductDTO> getProductById(@PathVariable Long id) {
         ProductDTO product = productService.getProductById(id);
         return ResponseEntity.ok(product);
     }
 
-    // ✅ Tạo sản phẩm mới (Trả về DTO)
+    // Tạo sản phẩm mới (Trả về DTO)
     @PostMapping
     public ResponseEntity<ProductDTO> createProduct(@Valid @RequestBody ProductDTO productDTO) {
         ProductDTO createdProduct = productService.createProduct(productDTO);
@@ -35,7 +35,7 @@ public class ProductController {
                 .body(createdProduct);
     }
 
-    // ✅ Cập nhật sản phẩm (Trả về DTO)
+    // Cập nhật sản phẩm (Trả về DTO)
     @PutMapping("/{id}")
     public ResponseEntity<ProductDTO> updateProduct(
             @PathVariable Long id,
@@ -44,7 +44,7 @@ public class ProductController {
         return ResponseEntity.ok(updatedProduct);
     }
 
-    // ✅ Xóa sản phẩm
+    // Xóa sản phẩm
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> deleteProduct(@PathVariable Long id) {
         productService.deleteProduct(id);

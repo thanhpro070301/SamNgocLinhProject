@@ -22,6 +22,7 @@ public class AuthService {
     private final UserRepository userRepository;
     private final SessionRepository sessionRepository;
     private final PasswordEncoder passwordEncoder;
+    private final OTPService otpService;
 
     /**
      * Đăng ký người dùng mới
@@ -37,6 +38,12 @@ public class AuthService {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Email đã tồn tại!");
         }
 
+        // Kiểm tra xem email đã xác thực chưa
+        if (!otpService.isVerified(email)) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Email chưa được xác thực!");
+        }
+
+        // Lưu thông tin người dùng sau khi xác thực OTP
         UserEntity newUser = UserEntity.builder()
                 .username(username)
                 .email(email)
@@ -45,12 +52,10 @@ public class AuthService {
                 .createdAt(LocalDateTime.now())
                 .updatedAt(LocalDateTime.now())
                 .build();
-
         userRepository.save(newUser);
-        log.info("Người dùng '{}' đã đăng ký thành công với vai trò '{}'.", username, newUser.getRole());
+        log.info("Người dùng '{}' đã đăng ký thành công.", username);
         return newUser;
     }
-
 
     /**
      * Xác thực đăng nhập và tạo session

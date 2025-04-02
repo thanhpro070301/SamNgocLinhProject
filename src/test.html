@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Danh sách sản phẩm</title>
+</head>
+<body>
+<h2>Danh sách sản phẩm</h2>
+<table border="1">
+    <thead>
+    <tr>
+        <th>ID</th>
+        <th>Tên sản phẩm</th>
+        <th>Giá</th>
+    </tr>
+    </thead>
+    <tbody id="product-list">
+    <!-- Dữ liệu sẽ được thêm vào đây -->
+    </tbody>
+</table>
+
+<script>
+    document.addEventListener("DOMContentLoaded", function () {
+        fetch("http://localhost:8080/api/products") // Gọi API từ backend
+            .then(response => response.json())
+            .then(data => {
+                let tableBody = document.getElementById("product-list");
+                data.forEach(product => {
+                    let row = `<tr>
+                        <td>${product.id}</td>
+                        <td>${product.name}</td>
+                        <td>${product.price} VNĐ</td>
+                    </tr>`;
+                    tableBody.innerHTML += row;
+                });
+            })
+            .catch(error => console.error("Lỗi khi tải dữ liệu:", error));
+    });
+</script>
+</body>
+</html>

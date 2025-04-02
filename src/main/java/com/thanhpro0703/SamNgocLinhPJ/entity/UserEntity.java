@@ -1,4 +1,5 @@
 package com.thanhpro0703.SamNgocLinhPJ.entity;
+import com.fasterxml.jackson.annotation.JsonManagedReference;
 import com.thanhpro0703.SamNgocLinhPJ.entity.base.BaseEntity;
 import jakarta.persistence.*;
 import lombok.*;
@@ -37,12 +38,17 @@ public class UserEntity extends BaseEntity {
     @Column(nullable = false, length = 20)
     private Role role = Role.CUSTOMER;
 
+    @Column(nullable = false)
+    private boolean isVerified = false;
+
     @CreationTimestamp
     @Column(updatable = false)
     private LocalDateTime createdAt;
     @UpdateTimestamp
     private LocalDateTime updatedAt;
 
+
     @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true)
+    @JsonManagedReference("user-session")
     private Set<SessionEntity> sessions = new HashSet<>();
 }

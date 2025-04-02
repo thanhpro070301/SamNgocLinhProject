@@ -1,6 +1,7 @@
 package com.thanhpro0703.SamNgocLinhPJ.entity;
 
 
+import com.fasterxml.jackson.annotation.JsonBackReference;
 import jakarta.persistence.*;
 import lombok.*;
 
@@ -19,6 +20,7 @@ public class SessionEntity {
     private Long id;
 
     @ManyToOne(fetch = FetchType.LAZY) // Liên kết với UserEntity
+    @JsonBackReference("user-session")
     @JoinColumn(name = "user_id", nullable = false)
     private UserEntity user;
 
