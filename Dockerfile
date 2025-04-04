@@ -1,11 +1,10 @@
-# Sử dụng OpenJDK 21
-FROM openjdk:21
-
-# Đặt thư mục làm việc trong container
+FROM maven:3.8.6-openjdk-21 AS build
 WORKDIR /app
+COPY . .
+RUN mvn clean package -DskipTests
 
-# Copy file JAR vào container
-COPY target/your-app.jar app.jar
-
-# Lệnh chạy ứng dụng
+FROM openjdk:21-jdk
+WORKDIR /app
+COPY --from=build /app/target/SamNgocLinhPJ-0.0.1-SNAPSHOT.jar app.jar
+EXPOSE 8080
 CMD ["java", "-jar", "app.jar"]
