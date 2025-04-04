@@ -1,57 +1,83 @@
 package com.thanhpro0703.SamNgocLinhPJ.controller;
 
-import com.thanhpro0703.SamNgocLinhPJ.dto.NewsDTO;
 import com.thanhpro0703.SamNgocLinhPJ.entity.NewsEntity;
-import com.thanhpro0703.SamNgocLinhPJ.service.NewsService;
-import jakarta.validation.Valid;
-import lombok.RequiredArgsConstructor;
+import com.thanhpro0703.SamNgocLinhPJ.reponsitory.NewsRepository;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-import java.net.URI;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/news")
-@RequiredArgsConstructor
+@CrossOrigin(origins = "*")
 public class NewsController {
-    private final NewsService newsService;
 
-    // Lấy danh sách tin tức
+    @Autowired
+    private NewsRepository newsRepository;
+
     @GetMapping
-    public ResponseEntity<List<NewsEntity>> getAllNews() {
-        List<NewsEntity> newsList = newsService.getAllNews();
-        return ResponseEntity.ok(newsList);
+    public ResponseEntity<Map<String, Object>> getAllNews(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size,
+            @RequestParam(defaultValue = "publishDate") String sortBy,
+            @RequestParam(defaultValue = "desc") String direction) {
+
+        Sort.Direction sortDirection = direction.equalsIgnoreCase("asc") ? Sort.Direction.ASC : Sort.Direction.DESC;
+        Pageable pageable = PageRequest.of(page, size, Sort.by(sortDirection, sortBy));
+
+        Page<NewsEntity> newsPage = newsRepository.findByPublishedTrue(pageable);
+
+        Map<String, Object> response = new HashMap<>();
+        response.put("news", newsPage.getContent());
+        response.put("currentPage", newsPage.getNumber());
+        response.put("totalItems", newsPage.getTotalElements());
+        response.put("totalPages", newsPage.getTotalPages());
+
+        return ResponseEntity.ok(response);
     }
 
-    // Lấy tin tức theo ID
     @GetMapping("/{id}")
-    public ResponseEntity<NewsEntity> getNewsById(@PathVariable Long id) {
-        NewsEntity news = newsService.getNewsById(id);
-        return ResponseEntity.ok(news);
+    public ResponseEntity<NewsEntity> getNewsById(@PathVariable Integer id) {
+        return newsRepository.findById(id)
+                .map(ResponseEntity::ok)
+                .orElse(ResponseEntity.notFound().build());
     }
 
-    // Tạo tin tức mới
-    @PostMapping
-    public ResponseEntity<NewsEntity> createNews(@Valid @RequestBody NewsDTO newsDTO) {
-        NewsEntity createdNews = newsService.createNews(newsDTO.toEntity());
-        return ResponseEntity.created(URI.create("/api/news/" + createdNews.getId()))
-                .body(createdNews);
+    @GetMapping("/slug/{slug}")
+    public ResponseEntity<NewsEntity> getNewsBySlug(@PathVariable String slug) {
+        return newsRepository.findBySlug(slug)
+                .map(ResponseEntity::ok)
+                .orElse(ResponseEntity.notFound().build());
     }
 
-    // Cập nhật tin tức
-    @PutMapping("/{id}")
-    public ResponseEntity<NewsEntity> updateNews(
-            @PathVariable Long id,
-            @Valid @RequestBody NewsDTO newsDTO) {
-        NewsEntity updatedNews = newsService.updateNews(id, newsDTO.toEntity());
-        return ResponseEntity.ok(updatedNews);
+    @GetMapping("/category/{category}")
+    public ResponseEntity<Map<String, Object>> getNewsByCategory(
+            @PathVariable String category,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size) {
+
+        Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "publishDate"));
+        Page<NewsEntity> newsPage = newsRepository.findByCategory(category, pageable);
+
+        Map<String, Object> response = new HashMap<>();
+        response.put("news", newsPage.getContent());
+        response.put("currentPage", newsPage.getNumber());
+        response.put("totalItems", newsPage.getTotalElements());
+        response.put("totalPages", newsPage.getTotalPages());
+
+        return ResponseEntity.ok(response);
     }
 
-    // Xóa tin tức
-    @DeleteMapping("/{id}")
-    public ResponseEntity<Void> deleteNews(@PathVariable Long id) {
-        newsService.deleteNews(id);
-        return ResponseEntity.noContent().build();
+    @GetMapping("/latest")
+    public ResponseEntity<List<NewsEntity>> getLatestNews() {
+        List<NewsEntity> latestNews = newsRepository.findTop5ByPublishedTrueOrderByPublishDateDesc();
+        return ResponseEntity.ok(latestNews);
     }
 }

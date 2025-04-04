@@ -25,7 +25,7 @@ public class ServiceService {
         return serviceRepository.findAll();
     }
 
-    public ServiceEntity getServiceById(Long id) {
+    public ServiceEntity getServiceById(Integer id) {
         return serviceRepository.findById(id)
                 .orElseThrow(() -> {
                     log.error("Không tìm thấy dịch vụ với ID: {}", id);
@@ -44,7 +44,7 @@ public class ServiceService {
     }
 
     @Transactional
-    public ServiceEntity updateService(Long id, ServiceEntity serviceDetails) {
+    public ServiceEntity updateService(Integer id, ServiceEntity serviceDetails) {
         ServiceEntity service = getServiceById(id);
 
         if (serviceDetails.getName() != null) {
@@ -59,7 +59,7 @@ public class ServiceService {
     }
 
     @Transactional
-    public void deleteService(Long id) {
+    public void deleteService(Integer id) {
         ServiceEntity service = getServiceById(id);
         serviceRepository.delete(service);
         log.info("Đã xóa dịch vụ với ID: {}", id);

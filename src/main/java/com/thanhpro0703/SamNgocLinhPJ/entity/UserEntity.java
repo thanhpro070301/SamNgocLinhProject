@@ -1,13 +1,11 @@
 package com.thanhpro0703.SamNgocLinhPJ.entity;
-import com.fasterxml.jackson.annotation.JsonManagedReference;
-import com.thanhpro0703.SamNgocLinhPJ.entity.base.BaseEntity;
+
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.*;
-import org.hibernate.annotations.CreationTimestamp;
-import org.hibernate.annotations.UpdateTimestamp;
-
 import java.time.LocalDateTime;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
 
 @Entity
@@ -17,38 +15,80 @@ import java.util.Set;
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-public class UserEntity extends BaseEntity {
+public class UserEntity {
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(nullable = false, unique = true, length = 50)
-    private String username;
-
     @Column(nullable = false)
-    private String password;
+    private String name;
 
-    @Column(nullable = false, unique = true, length = 100)
+    @Column(nullable = false, unique = true)
     private String email;
 
-    @Column(length = 20)
+    @Column(nullable = false)
+    @JsonIgnore
+    private String password;
+
     private String phone;
 
+    private String address;
+
     @Enumerated(EnumType.STRING)
-    @Column(nullable = false, length = 20)
-    private Role role = Role.CUSTOMER;
-
     @Column(nullable = false)
-    private boolean isVerified = false;
+    @Builder.Default
+    private Role role = Role.USER;
 
-    @CreationTimestamp
-    @Column(updatable = false)
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
+    @Builder.Default
+    private Status status = Status.ACTIVE;
+
+    private String avatar;
+
+    @Column(name = "created_at")
     private LocalDateTime createdAt;
-    @UpdateTimestamp
+
+    @Column(name = "updated_at")
     private LocalDateTime updatedAt;
 
+    @OneToMany(mappedBy = "user", cascade = CascadeType.ALL)
+    @Builder.Default
+    @JsonIgnore
+    private List<OrderEntity> orders = null;
+
+    @OneToMany(mappedBy = "user", cascade = CascadeType.ALL)
+    @Builder.Default
+    @JsonIgnore
+    private List<ReviewEntity> reviews = null;
+
+    @OneToMany(mappedBy = "author", cascade = CascadeType.ALL)
+    @Builder.Default
+    @JsonIgnore
+    private List<NewsEntity> news = null;
+
+    @PrePersist
+    protected void onCreate() {
+        createdAt = LocalDateTime.now();
+        updatedAt = LocalDateTime.now();
+    }
+
+    @PreUpdate
+    protected void onUpdate() {
+        updatedAt = LocalDateTime.now();
+    }
 
     @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true)
-    @JsonManagedReference("user-session")
-    private Set<SessionEntity> sessions = new HashSet<>();
+    @Builder.Default
+    @JsonIgnore
+    private Set<UserSessionEntity> sessions = new HashSet<>();
+
+    public enum Role {
+        ADMIN, USER
+    }
+
+    public enum Status {
+        ACTIVE, INACTIVE
+    }
 }

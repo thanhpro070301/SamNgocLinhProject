@@ -21,7 +21,7 @@ public class NewsService {
         return newsRepository.findAll();
     }
 
-    public NewsEntity getNewsById(Long id) {
+    public NewsEntity getNewsById(Integer id) {
         log.info("Tìm tin tức với ID: {}", id);
         return newsRepository.findById(id)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST,"Không tìm thấy tin tức với ID: " + id));
@@ -31,7 +31,7 @@ public class NewsService {
         log.info("Tạo tin tức mới: {}", news.getTitle());
 
         // Kiểm tra trùng tiêu đề tin tức trước khi tạo
-        if (newsRepository.existsByTitle(news.getTitle())) {
+        if (newsRepository.findAll().stream().anyMatch(n -> n.getTitle().equals(news.getTitle()))) {
             log.warn("Tin tức với tiêu đề '{}' đã tồn tại!", news.getTitle());
             throw new RuntimeException("Tin tức đã tồn tại với tiêu đề này!");
         }
@@ -39,19 +39,19 @@ public class NewsService {
         return newsRepository.save(news);
     }
 
-    public NewsEntity updateNews(Long id, NewsEntity newsDetails) {
+    public NewsEntity updateNews(Integer id, NewsEntity newsDetails) {
         log.info("Cập nhật tin tức với ID: {}", id);
 
         NewsEntity news = getNewsById(id); // Tận dụng lại method getNewsById()
 
         news.setTitle(newsDetails.getTitle());
         news.setContent(newsDetails.getContent());
-        news.setImageUrl(newsDetails.getImageUrl());
+        news.setImage(newsDetails.getImage());
 
         return newsRepository.save(news);
     }
 
-    public void deleteNews(Long id) {
+    public void deleteNews(Integer id) {
         log.info("Xóa tin tức với ID: {}", id);
         NewsEntity news = getNewsById(id);
         newsRepository.delete(news);

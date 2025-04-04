@@ -6,8 +6,12 @@ import lombok.Data;
 
 @Data
 public class RegisterRequestDTO {
+
+    @NotBlank(message = "Số điện thoại không được để trống")
+    private String phone;
+
     @NotBlank(message = "Tên người dùng không được để trống")
-    private String username;
+    private String fullName;
 
     @NotBlank(message = "Email không được để trống")
     @Email(message = "Email không hợp lệ")

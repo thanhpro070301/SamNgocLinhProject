@@ -15,13 +15,13 @@ public class NewsDTO {
     private String content;
 
     @URL(message = "URL hình ảnh không hợp lệ")
-    private String imageUrl;
+    private String image;
 
     public NewsEntity toEntity() {
         return NewsEntity.builder()
                 .title(this.title)
                 .content(this.content)
-                .imageUrl(this.imageUrl)
+                .image(this.image)
                 .build();
     }
 }

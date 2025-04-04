@@ -1,34 +1,71 @@
 package com.thanhpro0703.SamNgocLinhPJ.entity;
-import com.fasterxml.jackson.annotation.JsonManagedReference;
-import com.thanhpro0703.SamNgocLinhPJ.entity.base.BaseEntity;
-import com.thanhpro0703.SamNgocLinhPJ.utils.StringFormatterUtil;
+
 import jakarta.persistence.*;
-import lombok.*;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+
+import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
 
 @Entity
-@Table(name = "categories", uniqueConstraints = @UniqueConstraint(columnNames = "name"))
-@Getter
-@Setter
+@Table(name = "categories")
+@Data
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-public class CategoryEntity extends BaseEntity {
+public class CategoryEntity {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
+    private Integer id;
 
-    @Column(nullable = false, unique = true, length = 100)
+    @Column(nullable = false)
     private String name;
 
-    @OneToMany(mappedBy = "category", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
-    @JsonManagedReference
-    private List<ProductEntity> products;
+    @Column(nullable = false, unique = true)
+    private String slug;
+
+    @Column(columnDefinition = "TEXT")
+    private String description;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "parent_id")
+    private CategoryEntity parent;
+
+    @OneToMany(mappedBy = "parent", cascade = CascadeType.ALL)
+    @Builder.Default
+    private List<CategoryEntity> subCategories = new ArrayList<>();
+
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
+    @Builder.Default
+    private Status status = Status.ACTIVE;
+
+    @Column(name = "created_at")
+    private LocalDateTime createdAt;
+
+    @Column(name = "updated_at")
+    private LocalDateTime updatedAt;
+
+    @OneToMany(mappedBy = "category", cascade = CascadeType.ALL)
+    @Builder.Default
+    private List<ProductEntity> products = new ArrayList<>();
 
     @PrePersist
+    protected void onCreate() {
+        createdAt = LocalDateTime.now();
+        updatedAt = LocalDateTime.now();
+    }
+
     @PreUpdate
-    private void formatCategoryName() {
-        this.name = StringFormatterUtil.formatName(this.name);
+    protected void onUpdate() {
+        updatedAt = LocalDateTime.now();
+    }
+
+    public enum Status {
+        ACTIVE, INACTIVE
     }
 }

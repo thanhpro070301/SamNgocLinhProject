@@ -23,7 +23,7 @@ public class ContactService {
         return contactRepository.findAll();
     }
 
-    public ContactEntity getContactById(Long id) {
+    public ContactEntity getContactById(Integer id) {
         log.info("Tìm liên hệ với ID: {}", id);
         return contactRepository.findById(id)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST,"Không tìm thấy liên hệ với ID: " + id));
@@ -44,7 +44,7 @@ public class ContactService {
     }
 
 
-    public ContactEntity updateContact(Long id, ContactEntity contactDetails) {
+    public ContactEntity updateContact(Integer id, ContactEntity contactDetails) {
         log.info("Cập nhật liên hệ với ID: {}", id);
         ContactEntity contact = getContactById(id);
 
@@ -63,7 +63,7 @@ public class ContactService {
         return contactRepository.save(contact);
     }
 
-    public void deleteContact(Long id) {
+    public void deleteContact(Integer id) {
         log.info("Xóa liên hệ với ID: {}", id);
         ContactEntity contact = getContactById(id);
         contactRepository.delete(contact);

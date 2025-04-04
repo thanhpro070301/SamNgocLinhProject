@@ -26,7 +26,7 @@ public class ContactController {
 
     // Lấy danh bạ theo ID
     @GetMapping("/{id}")
-    public ResponseEntity<ContactEntity> getContactById(@PathVariable Long id) {
+    public ResponseEntity<ContactEntity> getContactById(@PathVariable Integer id) {
         ContactEntity contact = contactService.getContactById(id);
         return ResponseEntity.ok(contact);
     }
@@ -42,7 +42,7 @@ public class ContactController {
     // Cập nhật danh bạ
     @PutMapping("/{id}")
     public ResponseEntity<ContactEntity> updateContact(
-            @PathVariable Long id,
+            @PathVariable Integer id,
             @Valid @RequestBody ContactDTO contactDTO) {
         ContactEntity updatedContact = contactService.updateContact(id, contactDTO.toEntity());
         return ResponseEntity.ok(updatedContact);
@@ -50,7 +50,7 @@ public class ContactController {
 
     // Xóa danh bạ
     @DeleteMapping("/{id}")
-    public ResponseEntity<Void> deleteContact(@PathVariable Long id) {
+    public ResponseEntity<Void> deleteContact(@PathVariable Integer id) {
         contactService.deleteContact(id);
         return ResponseEntity.noContent().build();
     }

@@ -10,45 +10,37 @@ import lombok.NoArgsConstructor;
 import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "news")
+@Table(name = "reviews")
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-public class NewsEntity {
+public class ReviewEntity {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Integer id;
 
-    @Column(nullable = false)
-    private String title;
-
-    @Column(nullable = false, unique = true)
-    private String slug;
-
-    private String summary;
-
-    @Column(columnDefinition = "LONGTEXT")
-    private String content;
-
-    private String image;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "product_id", nullable = false)
+    @JsonIgnore
+    private ProductEntity product;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "author_id")
+    @JoinColumn(name = "user_id")
     @JsonIgnore
-    private UserEntity author;
+    private UserEntity user;
 
-    @Column(nullable = false, length = 50)
+    @Column(nullable = false)
+    private Integer rating;
+
+    @Column(columnDefinition = "TEXT")
+    private String comment;
+
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
     @Builder.Default
-    private String category = "news";
-
-    @Column
-    @Builder.Default
-    private Boolean published = true;
-
-    @Column(name = "publish_date")
-    private LocalDateTime publishDate;
+    private Status status = Status.PENDING;
 
     @Column(name = "created_at")
     private LocalDateTime createdAt;
@@ -60,16 +52,14 @@ public class NewsEntity {
     protected void onCreate() {
         createdAt = LocalDateTime.now();
         updatedAt = LocalDateTime.now();
-        if (published && publishDate == null) {
-            publishDate = LocalDateTime.now();
-        }
     }
 
     @PreUpdate
     protected void onUpdate() {
         updatedAt = LocalDateTime.now();
-        if (published && publishDate == null) {
-            publishDate = LocalDateTime.now();
-        }
     }
-}
+
+    public enum Status {
+        PENDING, APPROVED, REJECTED
+    }
+} 

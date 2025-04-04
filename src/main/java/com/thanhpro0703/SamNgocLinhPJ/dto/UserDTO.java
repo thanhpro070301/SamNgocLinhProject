@@ -1,45 +1,50 @@
 package com.thanhpro0703.SamNgocLinhPJ.dto;
+
 import com.thanhpro0703.SamNgocLinhPJ.entity.UserEntity;
-import jakarta.validation.constraints.Email;
-import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.Size;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
 import lombok.Data;
+import lombok.NoArgsConstructor;
+
+import java.time.LocalDateTime;
 
 @Data
+@NoArgsConstructor
+@AllArgsConstructor
+@Builder
 public class UserDTO {
     private Long id;
-
-    @NotBlank(message = "Tên người dùng không được để trống")
-    @Size(min = 3, max = 50, message = "Tên người dùng phải từ 3 đến 50 ký tự")
-    private String username;
-
-    @NotBlank(message = "Email không được để trống")
-    @Email(message = "Email không hợp lệ")
+    private String name;
     private String email;
+    private String phone;
+    private String address;
+    private String role;
+    private String status;
+    private String avatar;
+    private LocalDateTime createdAt;
 
-    @Size(min = 6, message = "Mật khẩu phải có ít nhất 6 ký tự")
-    private String password;
-
-    /**
-     * Chuyển từ DTO sang Entity
-     */
-    public UserEntity toEntity() {
-        return UserEntity.builder()
-                .id(this.id)
-                .username(this.username)
-                .email(this.email)
-                .password(this.password) // Mật khẩu sẽ được mã hóa trong service
+    public static UserDTO fromEntity(UserEntity entity) {
+        return UserDTO.builder()
+                .id(entity.getId())
+                .name(entity.getName())
+                .email(entity.getEmail())
+                .phone(entity.getPhone())
+                .address(entity.getAddress())
+                .role(entity.getRole().name())
+                .status(entity.getStatus().name())
+                .avatar(entity.getAvatar())
+                .createdAt(entity.getCreatedAt())
                 .build();
     }
-
-    /**
-     * Chuyển từ Entity sang DTO
-     */
-    public static UserDTO fromEntity(UserEntity user) {
-        UserDTO dto = new UserDTO();
-        dto.setId(user.getId());
-        dto.setUsername(user.getUsername());
-        dto.setEmail(user.getEmail());
-        return dto;
+    
+    public static UserDTO fromEntityWithoutSensitiveInfo(UserEntity entity) {
+        return UserDTO.builder()
+                .id(entity.getId())
+                .name(entity.getName())
+                .email(entity.getEmail())
+                .role(entity.getRole().name())
+                .status(entity.getStatus().name())
+                .avatar(entity.getAvatar())
+                .build();
     }
 }

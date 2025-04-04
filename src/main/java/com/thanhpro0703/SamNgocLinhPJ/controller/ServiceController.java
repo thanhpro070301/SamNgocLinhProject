@@ -26,8 +26,7 @@ public class ServiceController {
 
     // Lấy dịch vụ theo ID
     @GetMapping("/{id}")
-    public ResponseEntity<ServiceEntity> getServiceById(@PathVariable Long id) {
-
+    public ResponseEntity<ServiceEntity> getServiceById(@PathVariable Integer id) {
         return ResponseEntity.ok(serviceService.getServiceById(id));
     }
 
@@ -43,7 +42,7 @@ public class ServiceController {
     // Cập nhật dịch vụ
     @PutMapping("/{id}")
     public ResponseEntity<ServiceEntity> updateService(
-            @PathVariable Long id,
+            @PathVariable Integer id,
             @Valid @RequestBody ServiceDTO serviceDTO) {
         ServiceEntity updatedService = serviceService.updateService(id, serviceDTO.toEntity());
         return ResponseEntity.ok(updatedService);
@@ -51,7 +50,7 @@ public class ServiceController {
 
     // Xóa dịch vụ
     @DeleteMapping("/{id}")
-    public ResponseEntity<Void> deleteService(@PathVariable Long id) {
+    public ResponseEntity<Void> deleteService(@PathVariable Integer id) {
         serviceService.deleteService(id);
         return ResponseEntity.noContent().build();
     }

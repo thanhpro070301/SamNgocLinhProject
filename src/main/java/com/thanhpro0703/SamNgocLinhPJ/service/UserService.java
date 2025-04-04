@@ -1,7 +1,6 @@
 package com.thanhpro0703.SamNgocLinhPJ.service;
 import com.thanhpro0703.SamNgocLinhPJ.dto.UserDTO;
 import com.thanhpro0703.SamNgocLinhPJ.entity.UserEntity;
-import com.thanhpro0703.SamNgocLinhPJ.reponsitory.SessionRepository;
 import com.thanhpro0703.SamNgocLinhPJ.reponsitory.UserRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -19,7 +18,6 @@ import java.util.List;
 public class UserService {
 
     private final UserRepository userRepository;
-    private final SessionRepository sessionRepository;
     private final PasswordEncoder passwordEncoder;
 
     /**
@@ -42,14 +40,13 @@ public class UserService {
      */
     public UserEntity updateUser(Long id, UserDTO userDetails) {
         UserEntity user = getUserById(id);
-        if (userRepository.existsByEmail(userDetails.getEmail()) && !user.getEmail().equals(userDetails.getEmail())) {
-            throw new RuntimeException("Email đã tồn tại!");
-        }
-
-        user.setEmail(userDetails.getEmail());
-        if (userDetails.getPassword() != null && !userDetails.getPassword().isBlank()) {
-            user.setPassword(passwordEncoder.encode(userDetails.getPassword()));
-        }
+//        if (userRepository.existsByEmail(userDetails.getEmail()) && !user.getEmail().equals(userDetails.getEmail())) {
+//            throw new RuntimeException("Email đã tồn tại!");
+//        }
+//
+//        user.setEmail(userDetails.getEmail());
+        // Password handling is done separately through a specific endpoint
+        
         user.setUpdatedAt(LocalDateTime.now());
         return userRepository.save(user);
     }

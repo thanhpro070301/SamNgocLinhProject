@@ -29,7 +29,7 @@ public class CategoryService {
 
 
     @Transactional(readOnly = true)
-    public CategoryDTO getCategoryById(Long id) {
+    public CategoryDTO getCategoryById(Integer id) {
         log.info("Tìm danh mục có ID: {}", id);
         CategoryEntity category = categoryRepository.findById(id)
                 .orElseThrow(() -> {
@@ -55,7 +55,7 @@ public class CategoryService {
 
 
     @Transactional
-    public CategoryDTO updateCategory(Long id, CategoryDTO categoryDTO) {
+    public CategoryDTO updateCategory(Integer id, CategoryDTO categoryDTO) {
         log.info("Cập nhật danh mục có ID: {}", id);
         CategoryEntity category = categoryRepository.findById(id)
                 .orElseThrow(() -> {
@@ -73,7 +73,7 @@ public class CategoryService {
     }
 
     @Transactional
-    public void deleteCategory(Long id) {
+    public void deleteCategory(Integer id) {
         log.info("Xóa danh mục có ID: {}", id);
         CategoryEntity category = categoryRepository.findById(id)
                 .orElseThrow(() -> {
