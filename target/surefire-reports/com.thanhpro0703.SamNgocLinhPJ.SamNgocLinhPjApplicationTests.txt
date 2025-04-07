@@ -1,4 +1,0 @@
--------------------------------------------------------------------------------
-Test set: com.thanhpro0703.SamNgocLinhPJ.SamNgocLinhPjApplicationTests
--------------------------------------------------------------------------------
-Tests run: 1, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 8.239 s -- in com.thanhpro0703.SamNgocLinhPJ.SamNgocLinhPjApplicationTests
