@@ -57,10 +57,11 @@ public class GlobalExceptionHandler {
     /**
      * Xử lý các lỗi không lường trước được
      */
+    
     @ExceptionHandler(Exception.class)
     public ResponseEntity<Map<String, String>> handleGlobalException(Exception ex) {
         log.error("Lỗi không xác định: " + ex.getMessage(), ex);
-        
+        ex.printStackTrace(); // In đầy đủ stacktrace
         Map<String, String> errors = new HashMap<>();
         errors.put("error", "INTERNAL_SERVER_ERROR");
         errors.put("message", "Đã xảy ra lỗi hệ thống, vui lòng thử lại sau.");
