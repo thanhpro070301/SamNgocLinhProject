@@ -12,9 +12,11 @@ public class CorsConfig {
             @Override
             public void addCorsMappings(CorsRegistry registry) {
                 registry.addMapping("/**")
-                        .allowedOrigins("*") // Cho phép tất cả các nguồn
-                        .allowedMethods("GET", "POST", "PUT", "DELETE", "OPTIONS") // Các phương thức HTTP được phép
-                        .allowedHeaders("*"); // Cho phép tất cả các headers
+                        .allowedOrigins("https://regal-piroshki-919004.netlify.app")
+                        .allowedMethods("GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH")
+                        .allowedHeaders("*")
+                        .allowCredentials(true)
+                        .maxAge(3600); // 1 hour
             }
         };
     }
