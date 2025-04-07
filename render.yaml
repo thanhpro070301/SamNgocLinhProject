@@ -1,0 +1,8 @@
+services:
+  - type: web
+    name: spring-boot-app
+    env: java
+    buildCommand: "./mvnw clean install"
+    startCommand: "java -jar target/demo-0.0.1-SNAPSHOT.jar"
+    repo: https://github.com/your-username/your-repo
+    branch: main
