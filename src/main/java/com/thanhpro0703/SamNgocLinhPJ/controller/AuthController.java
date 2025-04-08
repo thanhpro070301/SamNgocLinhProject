@@ -124,10 +124,10 @@ public class AuthController {
                         .body(new ApiResponse(false, "Quá nhiều yêu cầu. Vui lòng thử lại sau."));
             }
 
-            // Kiểm tra OTP
-            if (!otpService.verifyOtp(request.getEmail(), request.getOtp())) {
+            // Kiểm tra email đã được xác thực OTP
+            if (!otpService.isVerified(request.getEmail())) {
                 return ResponseEntity.badRequest()
-                        .body(new ApiResponse(false, "Mã OTP không hợp lệ hoặc đã hết hạn"));
+                        .body(new ApiResponse(false, "Email chưa được xác thực. Vui lòng xác thực OTP trước khi đăng ký."));
             }
 
             // Đăng ký người dùng

@@ -44,22 +44,30 @@ Xác thực OTP thành công!
 **Request Body:**
 ```json
 {
+  "name": "Nguyễn Văn A",
   "email": "email@example.com",
-  "password": "matkhau123"
+  "password": "matkhau123",
+  "phone": "0123456789"
 }
 ```
 
 **Response (200):**
 ```json
 {
-  "id": 1,
-  "email": "email@example.com",
-  "role": "USER",
-  "createdAt": "2023-01-01T12:00:00"
+  "success": true,
+  "message": "Đăng ký thành công",
+  "data": {
+    "id": 1,
+    "name": "Nguyễn Văn A",
+    "email": "email@example.com",
+    "phone": "0123456789",
+    "role": "USER",
+    "createdAt": "2023-01-01T12:00:00"
+  }
 }
 ```
 
-**Lưu ý:** Email phải được xác thực OTP trước khi đăng ký.
+**Lưu ý:** Email phải được xác thực OTP trước khi đăng ký. Xác thực OTP được thực hiện thông qua API `/api/auth/verify-otp`.
 
 ### Đăng nhập
 

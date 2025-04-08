@@ -20,9 +20,6 @@ public class RegisterRequestDTO {
     @Size(min = 6, message = "Mật khẩu phải có ít nhất 6 ký tự")
     private String password;
 
-    @NotBlank(message = "Mã OTP không được để trống")
-    private String otp;
-
     @Pattern(regexp = "^\\d{10,11}$", message = "Số điện thoại phải có 10-11 chữ số")
     private String phone;
 }
