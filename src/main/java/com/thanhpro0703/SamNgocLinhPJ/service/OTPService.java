@@ -1,55 +1,65 @@
 package com.thanhpro0703.SamNgocLinhPJ.service;
 
+import com.thanhpro0703.SamNgocLinhPJ.entity.OTPEntity;
+import com.thanhpro0703.SamNgocLinhPJ.reponsitory.OTPRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.cache.annotation.CacheEvict;
-import org.springframework.cache.annotation.Cacheable;
 import org.springframework.mail.SimpleMailMessage;
 import org.springframework.mail.javamail.JavaMailSender;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
-import java.util.Map;
 import java.util.Random;
-import java.util.concurrent.ConcurrentHashMap;
 
 @Service
 @RequiredArgsConstructor
 @Slf4j
 public class OTPService {
     private final JavaMailSender mailSender;
+    private final OTPRepository otpRepository;
     private static final int OTP_LENGTH = 6;
     private static final int OTP_EXPIRY_MINUTES = 5;
     private static final int MAX_ATTEMPTS = 3;
     
-    // In-memory storage for OTPs and verification status
-    private final Map<String, OTPData> otpStorage = new ConcurrentHashMap<>();
-    
-    @Cacheable(value = "verifiedEmails", key = "#email")
     public boolean isVerified(String email) {
-        OTPData data = otpStorage.get(email);
-        return data != null && data.isVerified();
+        OTPEntity otp = otpRepository.findByEmailAndOtp(email, "VERIFIED")
+            .orElse(null);
+        return otp != null && !otp.getExpiresAt().isBefore(LocalDateTime.now());
     }
     
-    @CacheEvict(value = "verifiedEmails", key = "#email")
+    @Transactional
     public void markVerified(String email) {
-        OTPData data = otpStorage.get(email);
-        if (data != null) {
-            data.setVerified(true);
-            otpStorage.put(email, data);
-            log.info("Email {} marked as verified", email);
-        }
+        // Delete old OTPs
+        otpRepository.deleteByEmail(email);
+        
+        // Create verified record
+        OTPEntity verifiedOtp = OTPEntity.builder()
+            .email(email)
+            .otp("VERIFIED")
+            .expiresAt(LocalDateTime.now().plusMinutes(OTP_EXPIRY_MINUTES))
+            .build();
+        otpRepository.save(verifiedOtp);
+        
+        log.info("Email {} marked as verified", email);
     }
     
     @Transactional
     public void sendOtp(String email) {
+        // Delete old OTPs
+        otpRepository.deleteByEmail(email);
+        
         // Generate OTP
         String otp = generateOTP();
         
-        // Store OTP data
-        OTPData otpData = new OTPData(otp, LocalDateTime.now(), 0);
-        otpStorage.put(email, otpData);
+        // Store OTP in database
+        OTPEntity otpEntity = OTPEntity.builder()
+            .email(email)
+            .otp(otp)
+            .expiresAt(LocalDateTime.now().plusMinutes(OTP_EXPIRY_MINUTES))
+            .build();
+        otpRepository.save(otpEntity);
         
         // Send email
         sendOTPEmail(email, otp);
@@ -58,38 +68,24 @@ public class OTPService {
     }
     
     public boolean verifyOtp(String email, String otp) {
-        OTPData data = otpStorage.get(email);
+        OTPEntity otpEntity = otpRepository.findByEmailAndOtp(email, otp)
+            .orElse(null);
         
-        if (data == null) {
+        if (otpEntity == null) {
             log.warn("No OTP found for email: {}", email);
             return false;
         }
         
         // Check if OTP has expired
-        if (data.getGeneratedAt().plusMinutes(OTP_EXPIRY_MINUTES).isBefore(LocalDateTime.now())) {
+        if (otpEntity.getExpiresAt().isBefore(LocalDateTime.now())) {
             log.warn("OTP expired for email: {}", email);
-            otpStorage.remove(email);
+            otpRepository.delete(otpEntity);
             return false;
         }
         
-        // Check if max attempts reached
-        if (data.getAttempts() >= MAX_ATTEMPTS) {
-            log.warn("Max OTP attempts reached for email: {}", email);
-            otpStorage.remove(email);
-            return false;
-        }
-        
-        // Increment attempts
-        data.incrementAttempts();
-        otpStorage.put(email, data);
-        
-        // Verify OTP
-        boolean isValid = data.getOtp().equals(otp);
-        if (isValid) {
-            markVerified(email);
-        }
-        
-        return isValid;
+        // Mark as verified
+        markVerified(email);
+        return true;
     }
     
     private String generateOTP() {
@@ -125,44 +121,13 @@ public class OTPService {
             throw new RuntimeException("Không thể gửi email OTP. Vui lòng thử lại sau.");
         }
     }
-    
-    // Inner class to store OTP data
-    private static class OTPData {
-        private final String otp;
-        private final LocalDateTime generatedAt;
-        private int attempts;
-        private boolean verified;
-        
-        public OTPData(String otp, LocalDateTime generatedAt, int attempts) {
-            this.otp = otp;
-            this.generatedAt = generatedAt;
-            this.attempts = attempts;
-            this.verified = false;
-        }
-        
-        public String getOtp() {
-            return otp;
-        }
-        
-        public LocalDateTime getGeneratedAt() {
-            return generatedAt;
-        }
-        
-        public int getAttempts() {
-            return attempts;
-        }
-        
-        public void incrementAttempts() {
-            this.attempts++;
-        }
-        
-        public boolean isVerified() {
-            return verified;
-        }
-        
-        public void setVerified(boolean verified) {
-            this.verified = verified;
-        }
+
+    @Scheduled(fixedRate = 300000) // Run every 5 minutes
+    @Transactional
+    public void cleanupExpiredOtps() {
+        LocalDateTime now = LocalDateTime.now();
+        otpRepository.deleteByExpiresAtBefore(now);
+        log.info("Cleaned up expired OTPs");
     }
 }
 
