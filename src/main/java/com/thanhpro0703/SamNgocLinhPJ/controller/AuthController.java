@@ -131,9 +131,15 @@ public class AuthController {
             }
 
             // Đăng ký người dùng
-            UserEntity user = authService.registerUser(request.getUsername(), request.getEmail(), request.getPassword());
+            UserEntity user = authService.registerUser(
+                request.getName(),
+                request.getEmail(),
+                request.getPassword(),
+                request.getPhone()
+            );
             return ResponseEntity.ok(new ApiResponse(true, "Đăng ký thành công", user));
         } catch (Exception e) {
+            log.error("Error during registration: {}", e.getMessage());
             return ResponseEntity.badRequest()
                     .body(new ApiResponse(false, e.getMessage()));
         }

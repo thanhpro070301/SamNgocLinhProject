@@ -27,7 +27,7 @@ public class AuthService {
      * Đăng ký người dùng mới
      */
     @Transactional
-    public UserEntity registerUser(String name, String email, String password) {
+    public UserEntity registerUser(String name, String email, String password, String phone) {
         if (userRepository.existsByEmail(email)) {
             log.warn("Email '{}' đã được sử dụng!", email);
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Email đã tồn tại!");
@@ -43,6 +43,7 @@ public class AuthService {
                 .name(name)
                 .email(email)
                 .password(passwordEncoder.encode(password))
+                .phone(phone)
                 .role(UserEntity.Role.USER)
                 .createdAt(LocalDateTime.now())
                 .updatedAt(LocalDateTime.now())
