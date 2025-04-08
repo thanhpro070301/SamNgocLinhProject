@@ -67,6 +67,7 @@ public class OTPService {
         log.info("OTP sent to email: {}", email);
     }
     
+    @Transactional
     public boolean verifyOtp(String email, String otp) {
         OTPEntity otpEntity = otpRepository.findByEmailAndOtp(email, otp)
             .orElse(null);
