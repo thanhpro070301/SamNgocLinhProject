@@ -12,7 +12,10 @@ public class CorsConfig {
             @Override
             public void addCorsMappings(CorsRegistry registry) {
                 registry.addMapping("/**")
-                        .allowedOrigins("https://regal-piroshki-919004.netlify.app")
+                        .allowedOrigins(
+                            "https://regal-piroshki-919004.netlify.app",
+                            "https://samngoclinhproject.onrender.com"
+                        )
                         .allowedMethods("GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH")
                         .allowedHeaders("*")
                         .allowCredentials(true)
