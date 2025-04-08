@@ -50,19 +50,25 @@ public class AuthController {
      * Gửi OTP
      */
     @PostMapping("/send-otp")
-    public ResponseEntity<String> sendOtp(@RequestBody String email, HttpServletRequest request) {
+    public ResponseEntity<String> sendOtp(@RequestBody Map<String, String> request, HttpServletRequest httpRequest) {
         if (!otpBucket.tryConsume(1)) {
-            log.warn("Rate limit exceeded for OTP request from IP: {}", request.getRemoteAddr());
+            log.warn("Rate limit exceeded for OTP request from IP: {}", httpRequest.getRemoteAddr());
             return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
                 .body("Quá nhiều yêu cầu. Vui lòng thử lại sau 1 phút.");
         }
 
         try {
+            String email = request.get("email");
+            if (email == null || email.isEmpty()) {
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                    .body("Email không được để trống!");
+            }
+
             otpService.sendOtp(email);
             log.info("OTP sent successfully to email: {}", email);
             return ResponseEntity.ok("Mã OTP đã được gửi đến email của bạn!");
         } catch (Exception e) {
-            log.error("Error sending OTP to email: {}", email, e);
+            log.error("Error sending OTP to email: {}", request.get("email"), e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                 .body("Có lỗi xảy ra khi gửi OTP. Vui lòng thử lại sau.");
         }
@@ -70,17 +76,24 @@ public class AuthController {
 
     @PostMapping("/verify-otp")
     public ResponseEntity<String> verifyOtp(
-        @RequestParam String email,
-        @RequestParam String otp,
-        HttpServletRequest request
+        @RequestBody Map<String, String> request,
+        HttpServletRequest httpRequest
     ) {
         if (!otpBucket.tryConsume(1)) {
-            log.warn("Rate limit exceeded for OTP verification from IP: {}", request.getRemoteAddr());
+            log.warn("Rate limit exceeded for OTP verification from IP: {}", httpRequest.getRemoteAddr());
             return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
                 .body("Quá nhiều yêu cầu. Vui lòng thử lại sau 1 phút.");
         }
 
         try {
+            String email = request.get("email");
+            String otp = request.get("otp");
+
+            if (email == null || email.isEmpty() || otp == null || otp.isEmpty()) {
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                    .body("Email và mã OTP không được để trống!");
+            }
+
             if (otpService.verifyOtp(email, otp)) {
                 otpService.markVerified(email);
                 log.info("OTP verified successfully for email: {}", email);
@@ -90,7 +103,7 @@ public class AuthController {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST)
                 .body("OTP không hợp lệ hoặc đã hết hạn!");
         } catch (Exception e) {
-            log.error("Error verifying OTP for email: {}", email, e);
+            log.error("Error verifying OTP for email: {}", request.get("email"), e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                 .body("Có lỗi xảy ra khi xác thực OTP. Vui lòng thử lại sau.");
         }
