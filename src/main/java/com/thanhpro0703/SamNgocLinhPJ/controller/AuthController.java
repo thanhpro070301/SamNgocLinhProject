@@ -5,6 +5,8 @@ import com.thanhpro0703.SamNgocLinhPJ.dto.RegisterRequestDTO;
 import com.thanhpro0703.SamNgocLinhPJ.entity.UserEntity;
 import com.thanhpro0703.SamNgocLinhPJ.service.AuthService;
 import com.thanhpro0703.SamNgocLinhPJ.service.OTPService;
+import com.thanhpro0703.SamNgocLinhPJ.service.RateLimitService;
+import com.thanhpro0703.SamNgocLinhPJ.util.ApiResponse;
 import com.thanhpro0703.SamNgocLinhPJ.utils.TokenUtils;
 import io.github.bucket4j.Bandwidth;
 import io.github.bucket4j.Bucket;
@@ -31,6 +33,7 @@ public class AuthController {
     private final AuthService authService;
     private final OTPService otpService;
     private final PasswordEncoder passwordEncoder;
+    private final RateLimitService rateLimitService;
     private static final Logger log = LoggerFactory.getLogger(AuthController.class);
 
     // Rate limiting configuration
@@ -113,41 +116,26 @@ public class AuthController {
      * Đăng ký người dùng mới
      */
     @PostMapping("/register")
-    public ResponseEntity<?> register(
-        @Valid @RequestBody RegisterRequestDTO request,
-        HttpServletRequest httpRequest
-    ) {
-        if (!registerBucket.tryConsume(1)) {
-            log.warn("Rate limit exceeded for registration from IP: {}", httpRequest.getRemoteAddr());
-            return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
-                .body("Quá nhiều yêu cầu đăng ký. Vui lòng thử lại sau 1 phút.");
-        }
-
+    public ResponseEntity<?> register(@Valid @RequestBody RegisterRequestDTO request) {
         try {
-            if (!otpService.isVerified(request.getEmail())) {
-                log.warn("Registration attempt with unverified email: {}", request.getEmail());
-                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Email chưa được xác thực!");
+            // Kiểm tra rate limit
+            if (rateLimitService.isRateLimited(request.getEmail())) {
+                return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
+                        .body(new ApiResponse(false, "Quá nhiều yêu cầu. Vui lòng thử lại sau."));
             }
 
-            UserEntity newUser = authService.registerUser(
-                request.getName(),
-                request.getEmail(),
-                request.getPassword()
-            );
+            // Kiểm tra OTP
+            if (!otpService.verifyOtp(request.getEmail(), request.getOtp())) {
+                return ResponseEntity.badRequest()
+                        .body(new ApiResponse(false, "Mã OTP không hợp lệ hoặc đã hết hạn"));
+            }
 
-            log.info("New user registered successfully: {}", request.getEmail());
-            
-            Map<String, Object> response = new HashMap<>();
-            response.put("message", "Đăng ký thành công!");
-            response.put("user", newUser);
-            
-            return ResponseEntity.ok(response);
-        } catch (ResponseStatusException e) {
-            throw e;
+            // Đăng ký người dùng
+            UserEntity user = authService.registerUser(request.getFullName(), request.getEmail(), request.getPassword());
+            return ResponseEntity.ok(new ApiResponse(true, "Đăng ký thành công", user));
         } catch (Exception e) {
-            log.error("Error during registration for email: {}", request.getEmail(), e);
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                .body("Có lỗi xảy ra khi đăng ký. Vui lòng thử lại sau.");
+            return ResponseEntity.badRequest()
+                    .body(new ApiResponse(false, e.getMessage()));
         }
     }
 
