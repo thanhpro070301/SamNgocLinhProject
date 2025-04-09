@@ -93,6 +93,11 @@ public class OTPService {
     
     @Transactional(propagation = Propagation.REQUIRED)
     public boolean verifyOtp(String email, String otp) {
+        if (email == null || email.isEmpty() || otp == null || otp.isEmpty()) {
+            log.warn("Invalid email or OTP: email={}, otp={}", maskEmail(email), otp != null);
+            return false;
+        }
+        
         log.info("Verifying OTP for email: {}", maskEmail(email));
         try {
             // Tìm tất cả các OTP cho email này
@@ -108,6 +113,11 @@ public class OTPService {
             for (OTPEntity otpEntity : otpEntities) {
                 // Bỏ qua nếu đã hết hạn
                 if (otpEntity.getExpiresAt().isBefore(LocalDateTime.now())) {
+                    continue;
+                }
+                
+                // Bỏ qua nếu là trạng thái đã xác thực
+                if (VERIFIED_FLAG.equals(otpEntity.getOtp())) {
                     continue;
                 }
                 
@@ -130,8 +140,8 @@ public class OTPService {
             markVerified(email);
             return true;
         } catch (Exception e) {
-            log.error("Error verifying OTP for email: {}", maskEmail(email), e);
-            throw e;
+            log.error("Error verifying OTP for email: {}: {}", maskEmail(email), e.getMessage(), e);
+            return false;
         }
     }
     

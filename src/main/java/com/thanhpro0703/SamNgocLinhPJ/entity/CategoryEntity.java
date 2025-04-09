@@ -5,6 +5,7 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import lombok.ToString;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -33,10 +34,12 @@ public class CategoryEntity {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "parent_id")
+    @ToString.Exclude
     private CategoryEntity parent;
 
     @OneToMany(mappedBy = "parent", cascade = CascadeType.ALL)
     @Builder.Default
+    @ToString.Exclude
     private List<CategoryEntity> subCategories = new ArrayList<>();
 
     @Enumerated(EnumType.STRING)
@@ -52,6 +55,7 @@ public class CategoryEntity {
 
     @OneToMany(mappedBy = "category", cascade = CascadeType.ALL)
     @Builder.Default
+    @ToString.Exclude
     private List<ProductEntity> products = new ArrayList<>();
 
     @PrePersist

@@ -28,29 +28,37 @@ public class AuthService {
      */
     @Transactional
     public UserEntity registerUser(String name, String email, String password, String phone) {
-        if (userRepository.existsByEmail(email)) {
-            log.warn("Email '{}' đã được sử dụng!", email);
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Email đã tồn tại!");
-        }
+        try {
+            if (userRepository.existsByEmail(email)) {
+                log.warn("Email '{}' đã được sử dụng!", email);
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Email đã tồn tại!");
+            }
 
-        // Kiểm tra xem email đã xác thực chưa
-        if (!otpService.isVerified(email)) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Email chưa được xác thực!");
-        }
+            // Kiểm tra xem email đã xác thực chưa
+            if (!otpService.isVerified(email)) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Email chưa được xác thực!");
+            }
 
-        // Lưu thông tin người dùng sau khi xác thực OTP
-        UserEntity newUser = UserEntity.builder()
-                .name(name)
-                .email(email)
-                .password(passwordEncoder.encode(password))
-                .phone(phone)
-                .role(UserEntity.Role.USER)
-                .createdAt(LocalDateTime.now())
-                .updatedAt(LocalDateTime.now())
-                .build();
-        userRepository.save(newUser);
-        log.info("Người dùng '{}' đã đăng ký thành công.", email);
-        return newUser;
+            // Lưu thông tin người dùng sau khi xác thực OTP
+            UserEntity newUser = UserEntity.builder()
+                    .name(name)
+                    .email(email)
+                    .password(passwordEncoder.encode(password))
+                    .phone(phone)
+                    .role(UserEntity.Role.USER)
+                    .createdAt(LocalDateTime.now())
+                    .updatedAt(LocalDateTime.now())
+                    .build();
+            UserEntity savedUser = userRepository.save(newUser);
+            log.info("Người dùng '{}' đã đăng ký thành công.", email);
+            return savedUser;
+        } catch (ResponseStatusException e) {
+            // Ném lại các lỗi cụ thể để controller xử lý
+            throw e;
+        } catch (Exception e) {
+            log.error("Lỗi không xác định khi đăng ký người dùng '{}': {}", email, e.getMessage(), e);
+            throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "Đã xảy ra lỗi trong quá trình đăng ký. Vui lòng thử lại sau.");
+        }
     }
 
     /**
