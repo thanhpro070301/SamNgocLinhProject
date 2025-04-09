@@ -7,14 +7,11 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.mail.SimpleMailMessage;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.scheduling.annotation.Scheduled;
-import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.security.SecureRandom;
 import java.time.LocalDateTime;
-import java.util.Base64;
+import java.util.Random;
 
 @Service
 @RequiredArgsConstructor
@@ -22,132 +19,79 @@ import java.util.Base64;
 public class OTPService {
     private final JavaMailSender mailSender;
     private final OTPRepository otpRepository;
-    private final PasswordEncoder passwordEncoder;
-    
     private static final int OTP_LENGTH = 6;
     private static final int OTP_EXPIRY_MINUTES = 5;
-    private static final int VERIFIED_EXPIRY_MINUTES = 30; // 30 phút cho trạng thái đã xác thực
     private static final int MAX_ATTEMPTS = 3;
-    private static final String VERIFIED_FLAG = "VERIFIED";
     
-    @Transactional(readOnly = true)
     public boolean isVerified(String email) {
-        log.info("Checking if email is verified: {}", maskEmail(email));
-        OTPEntity otp = otpRepository.findByEmail(email)
-            .stream()
-            .filter(o -> VERIFIED_FLAG.equals(o.getOtp()))
-            .findFirst()
+        OTPEntity otp = otpRepository.findByEmailAndOtp(email, "VERIFIED")
             .orElse(null);
         return otp != null && !otp.getExpiresAt().isBefore(LocalDateTime.now());
     }
     
-    @Transactional(propagation = Propagation.REQUIRED)
+    @Transactional
     public void markVerified(String email) {
-        log.info("Marking email as verified: {}", maskEmail(email));
-        try {
-            // Delete old OTPs
-            otpRepository.deleteByEmail(email);
-            
-            // Create verified record
-            OTPEntity verifiedOtp = OTPEntity.builder()
-                .email(email)
-                .otp(VERIFIED_FLAG)
-                .expiresAt(LocalDateTime.now().plusMinutes(VERIFIED_EXPIRY_MINUTES))
-                .build();
-            otpRepository.save(verifiedOtp);
-            
-            log.info("Email {} marked as verified", maskEmail(email));
-        } catch (Exception e) {
-            log.error("Error marking email as verified: {}", maskEmail(email), e);
-            throw e;
-        }
+        // Delete old OTPs
+        otpRepository.deleteByEmail(email);
+        
+        // Create verified record
+        OTPEntity verifiedOtp = OTPEntity.builder()
+            .email(email)
+            .otp("VERIFIED")
+            .expiresAt(LocalDateTime.now().plusMinutes(OTP_EXPIRY_MINUTES))
+            .build();
+        otpRepository.save(verifiedOtp);
+        
+        log.info("Email {} marked as verified", email);
     }
     
-    @Transactional(propagation = Propagation.REQUIRED)
+    @Transactional
     public void sendOtp(String email) {
-        log.info("Sending OTP to email: {}", maskEmail(email));
-        try {
-            // Delete old OTPs
-            otpRepository.deleteByEmail(email);
-            
-            // Generate OTP
-            String otp = generateOTP();
-            
-            // Store OTP in database (hashed)
-            OTPEntity otpEntity = OTPEntity.builder()
-                .email(email)
-                .otp(passwordEncoder.encode(otp))
-                .expiresAt(LocalDateTime.now().plusMinutes(OTP_EXPIRY_MINUTES))
-                .build();
-            otpRepository.save(otpEntity);
-            
-            // Send email
-            sendOTPEmail(email, otp);
-            
-            log.info("OTP sent to email: {}", maskEmail(email));
-        } catch (Exception e) {
-            log.error("Error sending OTP to email: {}", maskEmail(email), e);
-            throw e;
-        }
+        // Delete old OTPs
+        otpRepository.deleteByEmail(email);
+        
+        // Generate OTP
+        String otp = generateOTP();
+        
+        // Store OTP in database
+        OTPEntity otpEntity = OTPEntity.builder()
+            .email(email)
+            .otp(otp)
+            .expiresAt(LocalDateTime.now().plusMinutes(OTP_EXPIRY_MINUTES))
+            .build();
+        otpRepository.save(otpEntity);
+        
+        // Send email
+        sendOTPEmail(email, otp);
+        
+        log.info("OTP sent to email: {}", email);
     }
     
-    @Transactional(propagation = Propagation.REQUIRED)
+    @Transactional
     public boolean verifyOtp(String email, String otp) {
-        if (email == null || email.isEmpty() || otp == null || otp.isEmpty()) {
-            log.warn("Invalid email or OTP: email={}, otp={}", maskEmail(email), otp != null);
+        OTPEntity otpEntity = otpRepository.findByEmailAndOtp(email, otp)
+            .orElse(null);
+        
+        if (otpEntity == null) {
+            log.warn("No OTP found for email: {}", email);
             return false;
         }
         
-        log.info("Verifying OTP for email: {}", maskEmail(email));
-        try {
-            // Tìm tất cả các OTP cho email này
-            var otpEntities = otpRepository.findByEmail(email);
-            
-            if (otpEntities.isEmpty()) {
-                log.warn("No OTP found for email: {}", maskEmail(email));
-                return false;
-            }
-            
-            // Tìm OTP hợp lệ và chưa hết hạn
-            boolean verified = false;
-            for (OTPEntity otpEntity : otpEntities) {
-                // Bỏ qua nếu đã hết hạn
-                if (otpEntity.getExpiresAt().isBefore(LocalDateTime.now())) {
-                    continue;
-                }
-                
-                // Bỏ qua nếu là trạng thái đã xác thực
-                if (VERIFIED_FLAG.equals(otpEntity.getOtp())) {
-                    continue;
-                }
-                
-                // Kiểm tra mã OTP
-                if (passwordEncoder.matches(otp, otpEntity.getOtp())) {
-                    verified = true;
-                    break;
-                }
-            }
-            
-            if (!verified) {
-                log.warn("Invalid OTP for email: {}", maskEmail(email));
-                return false;
-            }
-            
-            // Delete all OTPs for this email
-            otpRepository.deleteByEmail(email);
-            
-            // Mark as verified
-            markVerified(email);
-            return true;
-        } catch (Exception e) {
-            log.error("Error verifying OTP for email: {}: {}", maskEmail(email), e.getMessage(), e);
+        // Check if OTP has expired
+        if (otpEntity.getExpiresAt().isBefore(LocalDateTime.now())) {
+            log.warn("OTP expired for email: {}", email);
+            otpRepository.delete(otpEntity);
             return false;
         }
+        
+        // Mark as verified
+        markVerified(email);
+        return true;
     }
     
     private String generateOTP() {
-        // Sử dụng SecureRandom để tăng tính bảo mật
-        SecureRandom random = new SecureRandom();
+        // Use a more secure random number generator
+        Random random = new Random();
         StringBuilder otp = new StringBuilder();
         
         for (int i = 0; i < OTP_LENGTH; i++) {
@@ -158,7 +102,6 @@ public class OTPService {
     }
     
     private void sendOTPEmail(String email, String otp) {
-        log.info("Sending OTP email to: {}", maskEmail(email));
         SimpleMailMessage message = new SimpleMailMessage();
         message.setTo(email);
         message.setSubject("Xác thực OTP - Sâm Ngọc Linh");
@@ -174,47 +117,18 @@ public class OTPService {
         
         try {
             mailSender.send(message);
-            log.info("OTP email sent successfully to: {}", maskEmail(email));
         } catch (Exception e) {
-            log.error("Error sending OTP email: {}", e.getMessage());
+            log.error("Error sending OTP email to: {}", email, e);
             throw new RuntimeException("Không thể gửi email OTP. Vui lòng thử lại sau.");
         }
     }
 
     @Scheduled(fixedRate = 300000) // Run every 5 minutes
-    @Transactional(propagation = Propagation.REQUIRED)
+    @Transactional
     public void cleanupExpiredOtps() {
-        log.info("Cleaning up expired OTPs");
-        try {
-            LocalDateTime now = LocalDateTime.now();
-            int deleted = otpRepository.deleteByExpiresAtBefore(now);
-            log.info("Cleaned up {} expired OTPs", deleted);
-        } catch (Exception e) {
-            log.error("Error cleaning up expired OTPs", e);
-        }
-    }
-    
-    /**
-     * Che dấu email trong log để bảo vệ thông tin
-     */
-    private String maskEmail(String email) {
-        if (email == null || email.isEmpty() || !email.contains("@")) {
-            return "invalid-email";
-        }
-        
-        String[] parts = email.split("@");
-        String name = parts[0];
-        String domain = parts[1];
-        
-        if (name.length() <= 2) {
-            return name + "@" + domain;
-        }
-        
-        String maskedName = name.substring(0, 1) + 
-                            "*".repeat(name.length() - 2) + 
-                            name.substring(name.length() - 1);
-        
-        return maskedName + "@" + domain;
+        LocalDateTime now = LocalDateTime.now();
+        otpRepository.deleteByExpiresAtBefore(now);
+        log.info("Cleaned up expired OTPs");
     }
 }
 
