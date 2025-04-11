@@ -114,7 +114,8 @@ public class OrderController {
         
         String token = TokenUtils.extractToken(bearerToken);
         UserEntity user = authService.getUserByToken(token)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Phiên đăng nhập không hợp lệ"));
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, 
+                        "Bạn cần đăng nhập để đặt hàng. Vui lòng đăng nhập hoặc tạo tài khoản trước khi thanh toán."));
         
         // Chuyển từ DTO sang Entity
         OrderEntity orderEntity = orderDTO.toEntity();

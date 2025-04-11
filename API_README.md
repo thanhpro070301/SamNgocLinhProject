@@ -1,40 +1,221 @@
 # Tài liệu API của SamNgocLinhPJ
 
 ## Mục lục
-- [Xác thực](#xác-thực)
-- [API Người dùng](#api-người-dùng)
-- [API Sản phẩm](#api-sản-phẩm)
-- [API Danh mục](#api-danh-mục)
-- [API Đơn hàng](#api-đơn-hàng)
-- [API Tin tức](#api-tin-tức)
+- [Giới thiệu](#giới-thiệu)
+- [Các cải tiến mới](#các-cải-tiến-mới)
+- [Health Status](#health-status)
+- [Cấu trúc Response Chuẩn](#cấu-trúc-response-chuẩn)
+- [Xác thực (`/api/auth`)](#xác-thực-apiauth)
+- [Người dùng (`/api/users`, `/api/account`)](#người-dùng-apiusers-apiaccount)
+- [Sản phẩm (`/api/products`)](#sản-phẩm-apiproducts)
+- [Danh mục (`/api/categories`)](#danh-mục-apicategories)
+- [Đơn hàng (`/api/orders`)](#đơn-hàng-apiorders)
+- [Tin tức (`/api/news`)](#tin-tức-apinews)
+- [Liên hệ (`/api/contact`)](#liên-hệ-apicontact)
+- [Dịch vụ (`/api/services`)](#dịch-vụ-apiservices)
+- [Test (`/api/test`)](#test-apitest)
+- [Tài liệu API (Swagger UI)](#tài-liệu-api-swagger-ui)
 
-## Xác thực
+## Giới thiệu
+
+API này cung cấp các endpoint để tương tác với hệ thống Sâm Ngọc Linh.
+
+**Base URL:** `/` (Ví dụ: `http://yourdomain.com/api/auth/login`)
+
+**Xác thực:** API sử dụng chuẩn JWT (JSON Web Token) cho xác thực. Gửi token nhận được sau khi đăng nhập trong header `Authorization` dưới dạng `Bearer {token}`.
+
+**Lưu ý quan trọng về đặt hàng:** Người dùng **bắt buộc phải đăng nhập** để có thể đặt hàng và thanh toán. Hệ thống sẽ từ chối các yêu cầu đặt hàng từ người dùng chưa xác thực và yêu cầu đăng nhập hoặc đăng ký tài khoản.
+
+## Các cải tiến mới
+
+### JWT Authentication
+API đã được nâng cấp để sử dụng JWT (JSON Web Token) thay cho token tùy chỉnh trước đây, mang lại nhiều lợi ích:
+- Bảo mật cao hơn với signature được mã hóa
+- Tích hợp tốt hơn với các chuẩn xác thực hiện đại
+- Hỗ trợ refresh token để tránh đăng nhập lại liên tục
+- Khả năng lưu trữ thông tin claim trong token
+
+### Rate Limiting
+Hệ thống đã tích hợp rate limiting để bảo vệ API khỏi các cuộc tấn công DoS:
+- Giới hạn 20 request trong 1 phút cho mỗi IP
+- Áp dụng cho tất cả các endpoint, trừ tài nguyên tĩnh và Swagger UI
+- Khi vượt quá giới hạn, phản hồi sẽ là 429 Too Many Requests
+
+### Caching
+Hệ thống caching hiệu quả được triển khai:
+- Cache ngắn hạn (5 phút) cho dữ liệu thay đổi thường xuyên
+- Cache trung bình (30 phút) cho danh sách sản phẩm, danh mục
+- Cache dài hạn (1 giờ) cho dữ liệu ít thay đổi
+- Cache tự động vô hiệu hóa khi dữ liệu được cập nhật
+
+### Bảo mật nâng cao
+Cải tiến bảo mật:
+- Mã hóa thông tin nhạy cảm trong file cấu hình
+- Xử lý CORS một cách an toàn
+- Bảo vệ CSRF cho các endpoint quan trọng
+- Triển khai Spring Security với cấu hình bảo mật tốt hơn
+
+## Health Status
+
+API cung cấp các endpoint để kiểm tra tình trạng hoạt động (health check) của hệ thống.
+
+### Kiểm tra sức khỏe hệ thống
+
+**Endpoint:** `GET /health` (Endpoint chính)
+
+**Các Endpoint thay thế:**
+- `GET /api/health`
+- `GET /status`
+- `GET /` (Endpoint gốc - cung cấp phản hồi đơn giản hơn)
+
+**Response (200 OK):**
+```json
+{
+  "success": true,
+  "message": "API is healthy",
+  "data": {
+    "status": "UP",
+    "timestamp": "2024-03-24T10:15:30",
+    "version": "1.0.0",
+    "systemInfo": {
+      "availableProcessors": 8,
+      "freeMemory": "120 MB",
+      "totalMemory": "512 MB",
+      "maxMemory": "2048 MB"
+    }
+  }
+}
+```
+
+**Response cho Endpoint gốc (/):**
+```json
+{
+  "success": true,
+  "message": "API is running",
+  "data": null
+}
+```
+
+**Lưu ý:**
+- Các endpoint này được thiết kế để tích hợp với hệ thống giám sát frontend (ApiStatus component)
+- Endpoint trả về status code 200 để hệ thống được coi là "Online"
+- Nếu phản hồi mất hơn 1 giây nhưng dưới 3 giây, API được coi là "Slow"
+- Nếu phản hồi mất hơn 3 giây hoặc trả về status khác 200, API được coi là "Offline"
+
+## Cấu trúc Response Chuẩn
+
+**Thành công (HTTP 2xx):**
+```json
+{
+  "success": true,
+  "message": "Thông báo thành công (ví dụ: Đăng nhập thành công!)",
+  "data": { ... } // Dữ liệu trả về (có thể là object, array, hoặc null)
+}
+```
+
+**Thất bại (HTTP 4xx, 5xx):**
+```json
+{
+  "success": false,
+  "message": "Thông báo lỗi (ví dụ: Email hoặc mật khẩu không đúng)"
+  // Không có trường "data"
+}
+```
+
+## Xác thực (`/api/auth`)
 
 ### Gửi OTP xác thực email
 
 **Endpoint:** `POST /api/auth/send-otp`
 
+**Content-Type:** `application/json`
+**Request Body:**
+```json
+{
+  "email": "email@example.com"
+}
+```
+
+**Content-Type:** `text/plain`
 **Request Body:**
 ```
 email@example.com
 ```
 
-**Response (200):**
+**Response (200 OK):**
+```json
+{
+  "success": true,
+  "message": "Mã OTP đã được gửi đến email của bạn!",
+  "data": null
+}
 ```
-Mã OTP đã được gửi đến email của bạn!
+
+**Response (400 Bad Request):**
+```json
+{
+  "success": false,
+  "message": "Email không được để trống!"
+}
+```
+
+**Response (429 Too Many Requests):**
+```json
+{
+  "success": false,
+  "message": "Quá nhiều yêu cầu. Vui lòng thử lại sau 1 phút."
+}
+```
+
+**Response (500 Internal Server Error):**
+```json
+{
+  "success": false,
+  "message": "An internal server error occurred. Please try again later."
+}
 ```
 
 ### Xác thực OTP
 
 **Endpoint:** `POST /api/auth/verify-otp`
 
-**Request Parameters:**
-- `email`: Email đăng ký
-- `otp`: Mã OTP nhận được
-
-**Response (200):**
+**Request Body:**
+```json
+{
+  "email": "email@example.com",
+  "otp": "123456"
+}
 ```
-Xác thực OTP thành công!
+
+**Response (200 OK):**
+```json
+{
+  "success": true,
+  "message": "Xác thực OTP thành công!",
+  "data": null
+}
+```
+
+**Response (400 Bad Request):**
+```json
+{
+  "success": false,
+  "message": "Email và mã OTP không được để trống!"
+}
+```
+```json
+{
+  "success": false,
+  "message": "OTP không hợp lệ hoặc đã hết hạn!"
+}
+```
+
+**Response (429 Too Many Requests):**
+```json
+{
+  "success": false,
+  "message": "Quá nhiều yêu cầu. Vui lòng thử lại sau 1 phút."
+}
 ```
 
 ### Đăng ký tài khoản
@@ -51,7 +232,7 @@ Xác thực OTP thành công!
 }
 ```
 
-**Response (200):**
+**Response (200 OK):**
 ```json
 {
   "success": true,
@@ -62,14 +243,44 @@ Xác thực OTP thành công!
     "email": "email@example.com",
     "phone": "0123456789",
     "role": "USER",
-    "createdAt": "2023-01-01T12:00:00"
+    "createdAt": "2023-01-01T12:00:00",
+    "updatedAt": "2023-01-01T12:00:00"
+    // Lưu ý: Password không được trả về
   }
 }
 ```
 
-**Lưu ý:** Email phải được xác thực OTP trước khi đăng ký. Xác thực OTP được thực hiện thông qua API `/api/auth/verify-otp`.
+**Response (400 Bad Request):**
+```json
+{
+  "success": false,
+  "message": "Email đã tồn tại!"
+}
+```
+```json
+{
+  "success": false,
+  "message": "Email chưa được xác thực!"
+}
+```
+```json
+{
+  "success": false,
+  "message": "Validation failed: name: Tên không được để trống, email: Email không hợp lệ, ..."
+}
+```
 
-### Đăng nhập
+**Response (429 Too Many Requests):**
+```json
+{
+  "success": false,
+  "message": "Quá nhiều yêu cầu. Vui lòng thử lại sau."
+}
+```
+
+**Lưu ý:** Email phải được xác thực OTP thành công trước khi đăng ký.
+
+### Đăng nhập (JWT Authentication)
 
 **Endpoint:** `POST /api/auth/login`
 
@@ -81,49 +292,66 @@ Xác thực OTP thành công!
 }
 ```
 
-**Response (200):**
-```
-a1b2c3d4-e5f6-g7h8-i9j0-k1l2m3n4o5p6
-```
-
-**Lưu ý:** 
-- Token được trả về là chuỗi UUID dạng text
-- Token mặc định có hiệu lực trong 2 giờ
-- Token cần được đính kèm trong header `Authorization` dưới dạng `Bearer {token}` cho các API yêu cầu xác thực
-
-### Đăng xuất
-
-**Endpoint:** `POST /api/auth/logout`
-
-**Headers:**
-- `Authorization`: `Bearer {token}`
-
-**Response (200):**
+**Response (200 OK):**
 ```json
 {
-  "message": "Đăng xuất thành công"
+  "success": true,
+  "message": "Đăng nhập thành công!",
+  "data": {
+    "user": {
+      "id": 1,
+      "name": "Nguyễn Văn A",
+      "email": "email@example.com",
+      "role": "USER"
+    },
+    "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+    "refreshToken": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+    "expiresIn": 86400000
+  }
 }
 ```
 
-**Lưu ý:**
-- Sau khi đăng xuất, token sẽ không còn hiệu lực
-- API sẽ luôn trả về thành công, ngay cả khi token không hợp lệ hoặc đã hết hạn
+**Response (401 Unauthorized):**
+```json
+{
+  "success": false,
+  "message": "Email hoặc mật khẩu không đúng!"
+}
+```
 
-### Các lưu ý về xác thực
+### Làm mới token (Refresh Token)
 
-1. **Thời hạn token:**
-   - Token mặc định có hiệu lực trong 2 giờ
-   - Sau khi hết hạn, cần đăng nhập lại để lấy token mới
+**Endpoint:** `POST /api/auth/refresh-token`
 
-2. **Quyền hạn:**
-   - Tài khoản đăng ký mặc định có quyền USER
-   - Các API quản trị yêu cầu quyền ADMIN (thêm/sửa/xóa sản phẩm, danh mục...)
+**Request Body:**
+```json
+{
+  "refreshToken": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+}
+```
 
-3. **Xử lý lỗi:**
-   - **401 (Unauthorized)**: Token không hợp lệ hoặc đã hết hạn
-   - **403 (Forbidden)**: Không có quyền thực hiện hành động
+**Response (200 OK):**
+```json
+{
+  "success": true,
+  "message": "Token đã được làm mới thành công",
+  "data": {
+    "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+    "refreshToken": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+    "expiresIn": 86400000
+  }
+}
+```
 
-## API Người dùng
+**Response (401 Unauthorized):**
+```json
+{
+  "success": false,
+  "message": "Refresh token không hợp lệ hoặc đã hết hạn!"
+}
+```
+
+## Người dùng (`/api/users`, `/api/account`)
 
 ### Lấy danh sách người dùng
 
@@ -181,293 +409,7 @@ a1b2c3d4-e5f6-g7h8-i9j0-k1l2m3n4o5p6
 }
 ```
 
-## API Phiên đăng nhập
-
-### Lấy danh sách phiên đăng nhập
-
-**Endpoint:** `GET /api/account/sessions`
-
-**Headers:**
-- `Authorization`: `Bearer {token_string}`
-
-**Response (200):**
-```json
-[
-  {
-    "id": 1,
-    "deviceType": "Desktop",
-    "platform": "Windows",
-    "browser": "Chrome",
-    "ipAddress": "127.0.0.1",
-    "lastActivity": "2023-01-01T12:30:00",
-    "isCurrentSession": true,
-    "isRememberMe": false
-  }
-]
-```
-
-### Đăng xuất khỏi một phiên
-
-**Endpoint:** `DELETE /api/account/sessions/{sessionId}`
-
-**Headers:**
-- `Authorization`: `Bearer {token_string}`
-
-**Response (204):** *Không có nội dung*
-
-### Đăng xuất khỏi các thiết bị khác
-
-**Endpoint:** `DELETE /api/account/sessions/other-devices`
-
-**Headers:**
-- `Authorization`: `Bearer {token_string}`
-
-**Response (204):** *Không có nội dung*
-
-### Đăng xuất khỏi tất cả thiết bị
-
-**Endpoint:** `DELETE /api/account/sessions/all`
-
-**Headers:**
-- `Authorization`: `Bearer {token_string}`
-
-**Response (204):** *Không có nội dung*
-
-## API Đơn hàng
-
-### Lấy tất cả đơn hàng (chỉ dành cho admin)
-
-**Endpoint:** `GET /api/orders`
-
-**Headers:**
-- `Authorization`: `Bearer {token_string}`
-
-**Response (200):**
-```json
-[
-  {
-    "id": 1,
-    "userId": 1,
-    "totalAmount": 150000,
-    "shippingFee": 30000,
-    "status": "PENDING",
-    "paymentMethod": "COD",
-    "paymentStatus": "PENDING",
-    "shippingName": "Nguyễn Văn A",
-    "shippingPhone": "0123456789",
-    "shippingAddress": "123 Đường ABC, Quận XYZ",
-    "shippingEmail": "email@example.com",
-    "notes": "Giao hàng giờ hành chính",
-    "createdAt": "2023-01-01T12:00:00",
-    "updatedAt": "2023-01-01T12:00:00"
-  }
-]
-```
-
-### Lấy đơn hàng theo ID
-
-**Endpoint:** `GET /api/orders/{id}`
-
-**Headers:**
-- `Authorization`: `Bearer {token_string}`
-
-**Response (200):**
-```json
-{
-  "id": 1,
-  "userId": 1,
-  "totalAmount": 150000,
-  "shippingFee": 30000,
-  "status": "PENDING",
-  "paymentMethod": "COD",
-  "paymentStatus": "PENDING",
-  "shippingName": "Nguyễn Văn A",
-  "shippingPhone": "0123456789",
-  "shippingAddress": "123 Đường ABC, Quận XYZ",
-  "shippingEmail": "email@example.com",
-  "notes": "Giao hàng giờ hành chính",
-  "createdAt": "2023-01-01T12:00:00",
-  "updatedAt": "2023-01-01T12:00:00"
-}
-```
-
-### Lấy đơn hàng của người dùng hiện tại
-
-**Endpoint:** `GET /api/orders/my-orders`
-
-**Headers:**
-- `Authorization`: `Bearer {token_string}`
-
-**Response (200):**
-```json
-[
-  {
-    "id": 1,
-    "userId": 1,
-    "totalAmount": 150000,
-    "shippingFee": 30000,
-    "status": "PENDING",
-    "paymentMethod": "COD",
-    "paymentStatus": "PENDING",
-    "shippingName": "Nguyễn Văn A",
-    "shippingPhone": "0123456789",
-    "shippingAddress": "123 Đường ABC, Quận XYZ",
-    "shippingEmail": "email@example.com",
-    "notes": "Giao hàng giờ hành chính",
-    "createdAt": "2023-01-01T12:00:00",
-    "updatedAt": "2023-01-01T12:00:00"
-  }
-]
-```
-
-### Tạo đơn hàng mới
-
-**Endpoint:** `POST /api/orders`
-
-**Headers:**
-- `Authorization`: `Bearer {token_string}`
-
-**Request Body:**
-```json
-{
-  "shippingFee": 30000,
-  "paymentMethod": "COD",
-  "shippingName": "Nguyễn Văn A",
-  "shippingPhone": "0123456789",
-  "shippingAddress": "123 Đường ABC, Quận XYZ",
-  "shippingEmail": "email@example.com",
-  "notes": "Giao hàng giờ hành chính",
-  "products": {
-    "1": 2,
-    "2": 1
-  }
-}
-```
-
-Trong đó `products` là một map với key là product ID và value là số lượng sản phẩm.
-
-**Response (201):**
-```json
-{
-  "id": 1,
-  "userId": 1,
-  "totalAmount": 150000,
-  "shippingFee": 30000,
-  "status": "PENDING",
-  "paymentMethod": "COD",
-  "paymentStatus": "PENDING",
-  "shippingName": "Nguyễn Văn A",
-  "shippingPhone": "0123456789",
-  "shippingAddress": "123 Đường ABC, Quận XYZ",
-  "shippingEmail": "email@example.com",
-  "notes": "Giao hàng giờ hành chính",
-  "createdAt": "2023-01-01T12:00:00",
-  "updatedAt": "2023-01-01T12:00:00"
-}
-```
-
-### Cập nhật trạng thái đơn hàng (chỉ dành cho admin)
-
-**Endpoint:** `PUT /api/orders/{id}/status`
-
-**Headers:**
-- `Authorization`: `Bearer {token_string}`
-
-**Request Parameters:**
-- `status`: Trạng thái đơn hàng (PENDING, PROCESSING, SHIPPING, COMPLETED, CANCELLED)
-
-**Response (200):**
-```json
-{
-  "id": 1,
-  "userId": 1,
-  "totalAmount": 150000,
-  "shippingFee": 30000,
-  "status": "PROCESSING",
-  "paymentMethod": "COD",
-  "paymentStatus": "PENDING",
-  "shippingName": "Nguyễn Văn A",
-  "shippingPhone": "0123456789",
-  "shippingAddress": "123 Đường ABC, Quận XYZ",
-  "shippingEmail": "email@example.com",
-  "notes": "Giao hàng giờ hành chính",
-  "createdAt": "2023-01-01T12:00:00",
-  "updatedAt": "2023-01-01T12:30:00"
-}
-```
-
-### Cập nhật trạng thái thanh toán (chỉ dành cho admin)
-
-**Endpoint:** `PUT /api/orders/{id}/payment`
-
-**Headers:**
-- `Authorization`: `Bearer {token_string}`
-
-**Request Parameters:**
-- `paymentStatus`: Trạng thái thanh toán (PENDING, COMPLETED, FAILED)
-
-**Response (200):**
-```json
-{
-  "id": 1,
-  "userId": 1,
-  "totalAmount": 150000,
-  "shippingFee": 30000,
-  "status": "PROCESSING",
-  "paymentMethod": "COD",
-  "paymentStatus": "COMPLETED",
-  "shippingName": "Nguyễn Văn A",
-  "shippingPhone": "0123456789",
-  "shippingAddress": "123 Đường ABC, Quận XYZ",
-  "shippingEmail": "email@example.com",
-  "notes": "Giao hàng giờ hành chính",
-  "createdAt": "2023-01-01T12:00:00",
-  "updatedAt": "2023-01-01T12:45:00"
-}
-```
-
-### Hủy đơn hàng
-
-**Endpoint:** `POST /api/orders/{id}/cancel`
-
-**Headers:**
-- `Authorization`: `Bearer {token_string}`
-
-**Response (200):**
-```json
-{
-  "id": 1,
-  "userId": 1,
-  "totalAmount": 150000,
-  "shippingFee": 30000,
-  "status": "CANCELLED",
-  "paymentMethod": "COD",
-  "paymentStatus": "PENDING",
-  "shippingName": "Nguyễn Văn A",
-  "shippingPhone": "0123456789",
-  "shippingAddress": "123 Đường ABC, Quận XYZ",
-  "shippingEmail": "email@example.com",
-  "notes": "Giao hàng giờ hành chính",
-  "createdAt": "2023-01-01T12:00:00",
-  "updatedAt": "2023-01-01T13:00:00"
-}
-```
-
-### Kiểm tra trạng thái đơn hàng (endpoint công khai)
-
-**Endpoint:** `GET /api/orders/public/{id}`
-
-**Response (200):**
-```json
-{
-  "id": 1,
-  "status": "PROCESSING",
-  "paymentStatus": "PENDING",
-  "createdAt": "2023-01-01T12:00:00"
-}
-```
-
-## API Sản phẩm
+## Sản phẩm (`/api/products`)
 
 ### Lấy tất cả sản phẩm
 
@@ -682,7 +624,7 @@ Trong đó `products` là một map với key là product ID và value là số 
 
 **Response (200):** *Tương tự như lấy sản phẩm bán chạy nhất*
 
-## API Danh mục
+## Danh mục (`/api/categories`)
 
 ### Lấy danh sách danh mục
 
@@ -734,7 +676,254 @@ Trong đó `products` là một map với key là product ID và value là số 
 
 **Response (200):** *Tương tự như lấy danh sách sản phẩm*
 
-## API Tin tức
+## Đơn hàng (`/api/orders`)
+
+### Lấy tất cả đơn hàng (chỉ dành cho admin)
+
+**Endpoint:** `GET /api/orders`
+
+**Headers:**
+- `Authorization`: `Bearer {token_string}`
+
+**Response (200):**
+```json
+[
+  {
+    "id": 1,
+    "userId": 1,
+    "totalAmount": 150000,
+    "shippingFee": 30000,
+    "status": "PENDING",
+    "paymentMethod": "COD",
+    "paymentStatus": "PENDING",
+    "shippingName": "Nguyễn Văn A",
+    "shippingPhone": "0123456789",
+    "shippingAddress": "123 Đường ABC, Quận XYZ",
+    "shippingEmail": "email@example.com",
+    "notes": "Giao hàng giờ hành chính",
+    "createdAt": "2023-01-01T12:00:00",
+    "updatedAt": "2023-01-01T12:00:00"
+  }
+]
+```
+
+### Lấy đơn hàng theo ID
+
+**Endpoint:** `GET /api/orders/{id}`
+
+**Headers:**
+- `Authorization`: `Bearer {token_string}`
+
+**Response (200):**
+```json
+{
+  "id": 1,
+  "userId": 1,
+  "totalAmount": 150000,
+  "shippingFee": 30000,
+  "status": "PENDING",
+  "paymentMethod": "COD",
+  "paymentStatus": "PENDING",
+  "shippingName": "Nguyễn Văn A",
+  "shippingPhone": "0123456789",
+  "shippingAddress": "123 Đường ABC, Quận XYZ",
+  "shippingEmail": "email@example.com",
+  "notes": "Giao hàng giờ hành chính",
+  "createdAt": "2023-01-01T12:00:00",
+  "updatedAt": "2023-01-01T12:00:00"
+}
+```
+
+### Lấy đơn hàng của người dùng hiện tại
+
+**Endpoint:** `GET /api/orders/my-orders`
+
+**Headers:**
+- `Authorization`: `Bearer {token_string}`
+
+**Response (200):**
+```json
+[
+  {
+    "id": 1,
+    "userId": 1,
+    "totalAmount": 150000,
+    "shippingFee": 30000,
+    "status": "PENDING",
+    "paymentMethod": "COD",
+    "paymentStatus": "PENDING",
+    "shippingName": "Nguyễn Văn A",
+    "shippingPhone": "0123456789",
+    "shippingAddress": "123 Đường ABC, Quận XYZ",
+    "shippingEmail": "email@example.com",
+    "notes": "Giao hàng giờ hành chính",
+    "createdAt": "2023-01-01T12:00:00",
+    "updatedAt": "2023-01-01T12:00:00"
+  }
+]
+```
+
+### Tạo đơn hàng mới
+
+**Endpoint:** `POST /api/orders`
+
+**Headers:**
+- `Authorization`: `Bearer {token_string}` (Bắt buộc)
+
+**Request Body:**
+```json
+{
+  "shippingFee": 30000,
+  "paymentMethod": "COD",
+  "shippingName": "Nguyễn Văn A",
+  "shippingPhone": "0123456789",
+  "shippingAddress": "123 Đường ABC, Quận XYZ",
+  "shippingEmail": "email@example.com",
+  "notes": "Giao hàng giờ hành chính",
+  "products": {
+    "1": 2,
+    "2": 1
+  }
+}
+```
+
+Trong đó `products` là một map với key là product ID và value là số lượng sản phẩm.
+
+**Response (201):**
+```json
+{
+  "id": 1,
+  "userId": 1,
+  "totalAmount": 150000,
+  "shippingFee": 30000,
+  "status": "PENDING",
+  "paymentMethod": "COD",
+  "paymentStatus": "PENDING",
+  "shippingName": "Nguyễn Văn A",
+  "shippingPhone": "0123456789",
+  "shippingAddress": "123 Đường ABC, Quận XYZ",
+  "shippingEmail": "email@example.com",
+  "notes": "Giao hàng giờ hành chính",
+  "createdAt": "2023-01-01T12:00:00",
+  "updatedAt": "2023-01-01T12:00:00"
+}
+```
+
+**Response (401 Unauthorized):**
+```json
+{
+  "error": "UNAUTHORIZED",
+  "message": "Bạn cần đăng nhập để đặt hàng. Vui lòng đăng nhập hoặc tạo tài khoản trước khi thanh toán.",
+  "redirectUrl": "/login"
+}
+```
+
+**Lưu ý quan trọng:**
+- Người dùng **bắt buộc phải đăng nhập** để có thể đặt hàng. Hệ thống sẽ từ chối các yêu cầu đặt hàng từ người dùng chưa xác thực.
+- Nếu chưa đăng nhập, hệ thống sẽ trả về lỗi 401 với thông báo hướng dẫn đăng nhập.
+
+### Cập nhật trạng thái đơn hàng (chỉ dành cho admin)
+
+**Endpoint:** `PUT /api/orders/{id}/status`
+
+**Headers:**
+- `Authorization`: `Bearer {token_string}`
+
+**Request Parameters:**
+- `status`: Trạng thái đơn hàng (PENDING, PROCESSING, SHIPPING, COMPLETED, CANCELLED)
+
+**Response (200):**
+```json
+{
+  "id": 1,
+  "userId": 1,
+  "totalAmount": 150000,
+  "shippingFee": 30000,
+  "status": "PROCESSING",
+  "paymentMethod": "COD",
+  "paymentStatus": "PENDING",
+  "shippingName": "Nguyễn Văn A",
+  "shippingPhone": "0123456789",
+  "shippingAddress": "123 Đường ABC, Quận XYZ",
+  "shippingEmail": "email@example.com",
+  "notes": "Giao hàng giờ hành chính",
+  "createdAt": "2023-01-01T12:00:00",
+  "updatedAt": "2023-01-01T12:30:00"
+}
+```
+
+### Cập nhật trạng thái thanh toán (chỉ dành cho admin)
+
+**Endpoint:** `PUT /api/orders/{id}/payment`
+
+**Headers:**
+- `Authorization`: `Bearer {token_string}`
+
+**Request Parameters:**
+- `paymentStatus`: Trạng thái thanh toán (PENDING, COMPLETED, FAILED)
+
+**Response (200):**
+```json
+{
+  "id": 1,
+  "userId": 1,
+  "totalAmount": 150000,
+  "shippingFee": 30000,
+  "status": "PROCESSING",
+  "paymentMethod": "COD",
+  "paymentStatus": "COMPLETED",
+  "shippingName": "Nguyễn Văn A",
+  "shippingPhone": "0123456789",
+  "shippingAddress": "123 Đường ABC, Quận XYZ",
+  "shippingEmail": "email@example.com",
+  "notes": "Giao hàng giờ hành chính",
+  "createdAt": "2023-01-01T12:00:00",
+  "updatedAt": "2023-01-01T12:45:00"
+}
+```
+
+### Hủy đơn hàng
+
+**Endpoint:** `POST /api/orders/{id}/cancel`
+
+**Headers:**
+- `Authorization`: `Bearer {token_string}`
+
+**Response (200):**
+```json
+{
+  "id": 1,
+  "userId": 1,
+  "totalAmount": 150000,
+  "shippingFee": 30000,
+  "status": "CANCELLED",
+  "paymentMethod": "COD",
+  "paymentStatus": "PENDING",
+  "shippingName": "Nguyễn Văn A",
+  "shippingPhone": "0123456789",
+  "shippingAddress": "123 Đường ABC, Quận XYZ",
+  "shippingEmail": "email@example.com",
+  "notes": "Giao hàng giờ hành chính",
+  "createdAt": "2023-01-01T12:00:00",
+  "updatedAt": "2023-01-01T13:00:00"
+}
+```
+
+### Kiểm tra trạng thái đơn hàng (endpoint công khai)
+
+**Endpoint:** `GET /api/orders/public/{id}`
+
+**Response (200):**
+```json
+{
+  "id": 1,
+  "status": "PROCESSING",
+  "paymentStatus": "PENDING",
+  "createdAt": "2023-01-01T12:00:00"
+}
+```
+
+## Tin tức (`/api/news`)
 
 ### Lấy danh sách tin tức
 
@@ -809,13 +998,28 @@ Trong đó `products` là một map với key là product ID và value là số 
 }
 ```
 
-## Mã lỗi và giải thích
+## Liên hệ (`/api/contact`)
 
-- `200 OK`: Yêu cầu thành công
-- `201 Created`: Tạo mới tài nguyên thành công
-- `204 No Content`: Xử lý thành công nhưng không có nội dung trả về
-- `400 Bad Request`: Yêu cầu không hợp lệ
-- `401 Unauthorized`: Không có quyền truy cập
-- `403 Forbidden`: Không đủ quyền để thực hiện hành động
-- `404 Not Found`: Không tìm thấy tài nguyên
-- `500 Internal Server Error`: Lỗi máy chủ 
+*... (Cần cập nhật) ...*
+
+## Dịch vụ (`/api/services`)
+
+*... (Cần cập nhật) ...*
+
+## Test (`/api/test`)
+
+*... (Cần cập nhật) ...*
+
+## Tài liệu API (Swagger UI)
+
+API Documentation hiện đã có sẵn thông qua Swagger UI.
+
+**URL:** `/swagger-ui/index.html`
+
+Swagger UI cung cấp một giao diện tương tác cho phép:
+- Khám phá tất cả các endpoint có sẵn
+- Thử nghiệm API trực tiếp từ giao diện
+- Xem chi tiết các tham số và phản hồi
+- Thực hiện xác thực với JWT token
+
+**Lưu ý bảo mật:** Swagger UI được bảo vệ trong môi trường production. Vui lòng liên hệ với quản trị viên để được cấp quyền truy cập nếu cần thiết. 

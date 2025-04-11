@@ -1,5 +1,6 @@
 package com.thanhpro0703.SamNgocLinhPJ.dto;
 
+import com.fasterxml.jackson.annotation.JsonFormat;
 import com.thanhpro0703.SamNgocLinhPJ.entity.ProductEntity;
 import com.thanhpro0703.SamNgocLinhPJ.entity.ProductImageEntity;
 import lombok.AllArgsConstructor;
@@ -30,7 +31,10 @@ public class ProductDTO {
     private Integer sold;
     private BigDecimal rating;
     private String status;
+    @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss", timezone = "Asia/Ho_Chi_Minh")
     private LocalDateTime createdAt;
+    @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss", timezone = "Asia/Ho_Chi_Minh")
+    private LocalDateTime updatedAt;
     private List<String> images;
 
     public static ProductDTO fromEntity(ProductEntity entity) {
@@ -47,6 +51,7 @@ public class ProductDTO {
                 .rating(entity.getRating())
                 .status(entity.getStatus().name())
                 .createdAt(entity.getCreatedAt())
+                .updatedAt(entity.getUpdatedAt())
                 .build();
         
         if (entity.getCategory() != null) {

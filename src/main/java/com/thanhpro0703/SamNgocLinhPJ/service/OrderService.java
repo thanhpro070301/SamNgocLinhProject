@@ -4,15 +4,15 @@ import com.thanhpro0703.SamNgocLinhPJ.entity.OrderEntity;
 import com.thanhpro0703.SamNgocLinhPJ.entity.OrderItemEntity;
 import com.thanhpro0703.SamNgocLinhPJ.entity.ProductEntity;
 import com.thanhpro0703.SamNgocLinhPJ.entity.UserEntity;
-import com.thanhpro0703.SamNgocLinhPJ.reponsitory.OrderItemRepository;
-import com.thanhpro0703.SamNgocLinhPJ.reponsitory.OrderRepository;
-import com.thanhpro0703.SamNgocLinhPJ.reponsitory.ProductRepository;
+import com.thanhpro0703.SamNgocLinhPJ.exception.BadRequestException;
+import com.thanhpro0703.SamNgocLinhPJ.exception.ResourceNotFoundException;
+import com.thanhpro0703.SamNgocLinhPJ.repository.OrderItemRepository;
+import com.thanhpro0703.SamNgocLinhPJ.repository.OrderRepository;
+import com.thanhpro0703.SamNgocLinhPJ.repository.ProductRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.web.server.ResponseStatusException;
 
 import java.math.BigDecimal;
 import java.util.List;
@@ -41,7 +41,7 @@ public class OrderService {
     @Transactional(readOnly = true)
     public OrderEntity getOrderById(Integer id) {
         return orderRepository.findById(id)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Không tìm thấy đơn hàng!"));
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy đơn hàng với ID: " + id));
     }
 
     /**
@@ -69,13 +69,11 @@ public class OrderService {
             Integer quantity = entry.getValue();
             
             ProductEntity product = productRepository.findById(productId)
-                    .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, 
-                            "Không tìm thấy sản phẩm ID: " + productId));
+                    .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy sản phẩm với ID: " + productId));
             
             // Kiểm tra số lượng còn
             if (product.getStock() < quantity) {
-                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, 
-                        "Sản phẩm " + product.getName() + " chỉ còn " + product.getStock() + " sản phẩm!");
+                throw new BadRequestException("Sản phẩm '" + product.getName() + "' không đủ số lượng (còn " + product.getStock() + ")");
             }
             
             // Tính tiền cho sản phẩm này
@@ -134,8 +132,7 @@ public class OrderService {
         // Chỉ hủy được đơn hàng ở trạng thái PENDING hoặc PROCESSING
         if (order.getStatus() == OrderEntity.Status.SHIPPING || 
             order.getStatus() == OrderEntity.Status.COMPLETED) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, 
-                    "Không thể hủy đơn hàng đã vận chuyển hoặc hoàn thành!");
+            throw new BadRequestException("Không thể hủy đơn hàng ở trạng thái " + order.getStatus());
         }
         
         // Hoàn trả số lượng sản phẩm

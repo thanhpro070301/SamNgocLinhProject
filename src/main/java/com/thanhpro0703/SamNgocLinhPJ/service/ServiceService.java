@@ -1,8 +1,9 @@
 package com.thanhpro0703.SamNgocLinhPJ.service;
 
+import com.thanhpro0703.SamNgocLinhPJ.dto.ServiceDTO;
 import com.thanhpro0703.SamNgocLinhPJ.entity.ServiceEntity;
 import com.thanhpro0703.SamNgocLinhPJ.exception.DuplicateServiceException;
-import com.thanhpro0703.SamNgocLinhPJ.reponsitory.ServiceRepository;
+import com.thanhpro0703.SamNgocLinhPJ.repository.ServiceRepository;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;

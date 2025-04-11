@@ -1,7 +1,7 @@
 package com.thanhpro0703.SamNgocLinhPJ.controller;
 
 import com.thanhpro0703.SamNgocLinhPJ.entity.NewsEntity;
-import com.thanhpro0703.SamNgocLinhPJ.reponsitory.NewsRepository;
+import com.thanhpro0703.SamNgocLinhPJ.repository.NewsRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;

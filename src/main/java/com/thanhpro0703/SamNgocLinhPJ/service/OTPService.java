@@ -1,7 +1,8 @@
 package com.thanhpro0703.SamNgocLinhPJ.service;
 
 import com.thanhpro0703.SamNgocLinhPJ.entity.OTPEntity;
-import com.thanhpro0703.SamNgocLinhPJ.reponsitory.OTPRepository;
+import com.thanhpro0703.SamNgocLinhPJ.exception.BadRequestException;
+import com.thanhpro0703.SamNgocLinhPJ.repository.OTPRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.mail.SimpleMailMessage;
@@ -11,6 +12,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.util.Optional;
 import java.util.Random;
 
 @Service
@@ -30,63 +32,92 @@ public class OTPService {
     }
     
     @Transactional
-    public void markVerified(String email) {
-        // Delete old OTPs
-        otpRepository.deleteByEmail(email);
-        
-        // Create verified record
-        OTPEntity verifiedOtp = OTPEntity.builder()
-            .email(email)
-            .otp("VERIFIED")
-            .expiresAt(LocalDateTime.now().plusMinutes(OTP_EXPIRY_MINUTES))
-            .build();
-        otpRepository.save(verifiedOtp);
-        
-        log.info("Email {} marked as verified", email);
-    }
-    
-    @Transactional
     public void sendOtp(String email) {
-        // Delete old OTPs
-        otpRepository.deleteByEmail(email);
-        
         // Generate OTP
         String otp = generateOTP();
+        LocalDateTime expiresAt = LocalDateTime.now().plusMinutes(OTP_EXPIRY_MINUTES);
         
-        // Store OTP in database
-        OTPEntity otpEntity = OTPEntity.builder()
-            .email(email)
-            .otp(otp)
-            .expiresAt(LocalDateTime.now().plusMinutes(OTP_EXPIRY_MINUTES))
-            .build();
-        otpRepository.save(otpEntity);
+        // Thực hiện trong transaction đảm bảo atomic
+        deleteAndSaveOtp(email, otp, expiresAt);
         
-        // Send email
+        // Gửi email (Nếu có lỗi MailException, GlobalExceptionHandler sẽ xử lý)
         sendOTPEmail(email, otp);
         
         log.info("OTP sent to email: {}", email);
     }
     
+    @Transactional(propagation = org.springframework.transaction.annotation.Propagation.REQUIRES_NEW)
+    public void deleteAndSaveOtp(String email, String otp, LocalDateTime expiresAt) {
+        // Sử dụng map và orElse để xử lý Optional
+        OTPEntity otpToSave = otpRepository.findByEmail(email)
+            .map(existingOtp -> {
+                existingOtp.setOtp(otp);
+                existingOtp.setExpiresAt(expiresAt);
+                log.info("Updating existing OTP for email: {}", email);
+                return existingOtp;
+            })
+            .orElseGet(() -> {
+                log.info("Creating new OTP for email: {}", email);
+                return OTPEntity.builder()
+                    .email(email)
+                    .otp(otp)
+                    .expiresAt(expiresAt)
+                    .build();
+            });
+        otpRepository.save(otpToSave);
+    }
+    
     @Transactional
-    public boolean verifyOtp(String email, String otp) {
-        OTPEntity otpEntity = otpRepository.findByEmailAndOtp(email, otp)
-            .orElse(null);
-        
-        if (otpEntity == null) {
-            log.warn("No OTP found for email: {}", email);
-            return false;
+    public void markVerified(String email) {
+        try {
+            // Thực hiện trong transaction đảm bảo atomic
+            deleteAndSaveVerified(email);
+            
+            log.info("Email {} marked as verified", email);
+        } catch (Exception e) {
+            log.error("Error marking email as verified: {}", e.getMessage(), e);
+            throw new RuntimeException("Không thể đánh dấu xác thực. Vui lòng thử lại sau.");
         }
+    }
+    
+    @Transactional(propagation = org.springframework.transaction.annotation.Propagation.REQUIRES_NEW)
+    public void deleteAndSaveVerified(String email) {
+        // Sử dụng map và orElse để xử lý Optional
+        OTPEntity otpToSave = otpRepository.findByEmail(email)
+            .map(existingOtp -> {
+                existingOtp.setOtp("VERIFIED");
+                existingOtp.setExpiresAt(LocalDateTime.now().plusMinutes(OTP_EXPIRY_MINUTES));
+                log.info("Updating existing OTP to VERIFIED for email: {}", email);
+                return existingOtp;
+            })
+            .orElseGet(() -> {
+                log.info("Creating new VERIFIED status for email: {}", email);
+                return OTPEntity.builder()
+                    .email(email)
+                    .otp("VERIFIED")
+                    .expiresAt(LocalDateTime.now().plusMinutes(OTP_EXPIRY_MINUTES))
+                    .build();
+            });
+        otpRepository.save(otpToSave);
+    }
+    
+    @Transactional
+    public void verifyOtp(String email, String otp) {
+        OTPEntity otpEntity = otpRepository.findByEmailAndOtp(email, otp)
+            .orElseThrow(() -> {
+                log.warn("Invalid OTP or email: {}", email);
+                return new BadRequestException("OTP không hợp lệ hoặc đã hết hạn!");
+            });
         
         // Check if OTP has expired
         if (otpEntity.getExpiresAt().isBefore(LocalDateTime.now())) {
             log.warn("OTP expired for email: {}", email);
-            otpRepository.delete(otpEntity);
-            return false;
+            otpRepository.delete(otpEntity); // Xóa OTP hết hạn
+            throw new BadRequestException("OTP không hợp lệ hoặc đã hết hạn!");
         }
         
         // Mark as verified
-        markVerified(email);
-        return true;
+        markVerified(email); 
     }
     
     private String generateOTP() {
@@ -115,12 +146,8 @@ public class OTPService {
             otp, OTP_EXPIRY_MINUTES
         ));
         
-        try {
-            mailSender.send(message);
-        } catch (Exception e) {
-            log.error("Error sending OTP email to: {}", email, e);
-            throw new RuntimeException("Không thể gửi email OTP. Vui lòng thử lại sau.");
-        }
+        // Để MailException (hoặc lỗi khác) được ném ra
+        mailSender.send(message);
     }
 
     @Scheduled(fixedRate = 300000) // Run every 5 minutes

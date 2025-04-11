@@ -1,7 +1,7 @@
 package com.thanhpro0703.SamNgocLinhPJ.service;
 
 import com.thanhpro0703.SamNgocLinhPJ.entity.ContactEntity;
-import com.thanhpro0703.SamNgocLinhPJ.reponsitory.ContactRepository;
+import com.thanhpro0703.SamNgocLinhPJ.repository.ContactRepository;
 import com.thanhpro0703.SamNgocLinhPJ.utils.PhoneValidator;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;

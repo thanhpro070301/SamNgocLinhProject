@@ -4,9 +4,10 @@ import com.thanhpro0703.SamNgocLinhPJ.dto.CategoryDTO;
 import com.thanhpro0703.SamNgocLinhPJ.dto.ProductDTO;
 import com.thanhpro0703.SamNgocLinhPJ.entity.CategoryEntity;
 import com.thanhpro0703.SamNgocLinhPJ.entity.ProductEntity;
-import com.thanhpro0703.SamNgocLinhPJ.reponsitory.CategoryRepository;
-import com.thanhpro0703.SamNgocLinhPJ.reponsitory.ProductRepository;
+import com.thanhpro0703.SamNgocLinhPJ.repository.CategoryRepository;
+import com.thanhpro0703.SamNgocLinhPJ.repository.ProductRepository;
 import com.thanhpro0703.SamNgocLinhPJ.service.CategoryService;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -20,6 +21,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
+@Slf4j
 @RestController
 @RequestMapping("/api/categories")
 @CrossOrigin(origins = "*")
@@ -35,8 +37,23 @@ public class CategoryController {
     private CategoryService categoryService;
 
     @GetMapping
-    public ResponseEntity<List<CategoryDTO>> getAllCategories() {
-        return ResponseEntity.ok(categoryService.getAllCategories());
+    public ResponseEntity<?> getAllCategories() {
+        try {
+            List<CategoryDTO> categories = categoryService.getAllCategories();
+            return ResponseEntity.ok(categories);
+        } catch (Exception e) {
+            // Log lỗi
+            log.error("Lỗi khi lấy danh sách danh mục: {}", e.getMessage(), e);
+            
+            // Tạo thông báo lỗi
+            Map<String, Object> errorResponse = new HashMap<>();
+            errorResponse.put("success", false);
+            errorResponse.put("message", "Đã xảy ra lỗi khi lấy danh mục sản phẩm");
+            errorResponse.put("error", e.getMessage());
+            
+            // Trả về lỗi 400 Bad Request thay vì 500 Internal Server Error
+            return ResponseEntity.badRequest().body(errorResponse);
+        }
     }
 
     @GetMapping("/parent")

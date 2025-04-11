@@ -1,5 +1,6 @@
 package com.thanhpro0703.SamNgocLinhPJ.dto;
 
+import com.fasterxml.jackson.annotation.JsonFormat;
 import com.thanhpro0703.SamNgocLinhPJ.entity.UserEntity;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -21,6 +22,8 @@ public class UserDTO {
     private String role;
     private String status;
     private String avatar;
+    
+    @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss", timezone = "Asia/Ho_Chi_Minh")
     private LocalDateTime createdAt;
 
     public static UserDTO fromEntity(UserEntity entity) {

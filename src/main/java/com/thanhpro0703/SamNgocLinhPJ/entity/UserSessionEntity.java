@@ -25,6 +25,9 @@ public class UserSessionEntity {
     @Column(name = "token_id", nullable = false, unique = true, length = 36)
     private String tokenId;
 
+    @Column(name = "refresh_token_id", unique = true, length = 36)
+    private String refreshTokenId;
+
     @Column(name = "ip_address", length = 45)
     private String ipAddress;
 

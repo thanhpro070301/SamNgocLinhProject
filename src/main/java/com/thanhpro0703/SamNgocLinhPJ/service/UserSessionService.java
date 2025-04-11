@@ -2,7 +2,8 @@ package com.thanhpro0703.SamNgocLinhPJ.service;
 
 import com.thanhpro0703.SamNgocLinhPJ.entity.UserEntity;
 import com.thanhpro0703.SamNgocLinhPJ.entity.UserSessionEntity;
-import com.thanhpro0703.SamNgocLinhPJ.reponsitory.UserSessionRepository;
+import com.thanhpro0703.SamNgocLinhPJ.exception.ResourceNotFoundException;
+import com.thanhpro0703.SamNgocLinhPJ.repository.UserSessionRepository;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -94,12 +95,8 @@ public class UserSessionService {
     public boolean isValidSession(String tokenId) {
         Optional<UserSessionEntity> sessionOpt = getSessionByToken(tokenId);
         
-        if (sessionOpt.isEmpty()) {
-            return false;
-        }
-        
-        UserSessionEntity session = sessionOpt.get();
-        return !session.getExpiresAt().isBefore(LocalDateTime.now());
+        return sessionOpt.map(session -> !session.getExpiresAt().isBefore(LocalDateTime.now()))
+                       .orElse(false);
     }
     
     /**
@@ -115,15 +112,10 @@ public class UserSessionService {
      */
     @Transactional
     public void deleteSession(String tokenId) {
-        Optional<UserSessionEntity> sessionOpt = userSessionRepository.findByTokenId(tokenId);
-        
-        if (sessionOpt.isPresent()) {
-            userSessionRepository.delete(sessionOpt.get());
+        userSessionRepository.findByTokenId(tokenId).ifPresent(session -> {
+            userSessionRepository.delete(session);
             log.info("Đã xóa phiên đăng nhập với token: {}", tokenId);
-        } else {
-            log.warn("Không tìm thấy phiên đăng nhập với token: {}", tokenId);
-            // Không ném lỗi mà chỉ ghi log cảnh báo
-        }
+        });
     }
     
     /**
@@ -254,7 +246,7 @@ public class UserSessionService {
     @Transactional(readOnly = true)
     public UserSessionEntity getSessionById(Integer sessionId) {
         return userSessionRepository.findById(sessionId)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Không tìm thấy phiên đăng nhập"));
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy phiên đăng nhập với ID: " + sessionId));
     }
     
     /**

@@ -3,7 +3,7 @@ package com.thanhpro0703.SamNgocLinhPJ.controller;
 import com.thanhpro0703.SamNgocLinhPJ.dto.ProductDTO;
 import com.thanhpro0703.SamNgocLinhPJ.entity.ProductEntity;
 import com.thanhpro0703.SamNgocLinhPJ.entity.UserEntity;
-import com.thanhpro0703.SamNgocLinhPJ.reponsitory.ProductRepository;
+import com.thanhpro0703.SamNgocLinhPJ.repository.ProductRepository;
 import com.thanhpro0703.SamNgocLinhPJ.service.AuthService;
 import com.thanhpro0703.SamNgocLinhPJ.service.ProductService;
 import com.thanhpro0703.SamNgocLinhPJ.utils.TokenUtils;
@@ -27,7 +27,6 @@ import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/api/products")
-@CrossOrigin(origins = "*")
 public class ProductController {
 
     private static final Logger log = LoggerFactory.getLogger(ProductController.class);
@@ -124,21 +123,13 @@ public class ProductController {
 
     @GetMapping("/best-selling")
     public ResponseEntity<List<ProductDTO>> getBestSellingProducts() {
-        List<ProductDTO> products = productRepository.findTop8ByStatusOrderBySoldDesc(ProductEntity.Status.ACTIVE)
-                .stream()
-                .map(ProductDTO::fromEntity)
-                .collect(Collectors.toList());
-        
+        List<ProductDTO> products = productService.getBestSellingProducts();
         return ResponseEntity.ok(products);
     }
 
     @GetMapping("/new-arrivals")
     public ResponseEntity<List<ProductDTO>> getNewArrivals() {
-        List<ProductDTO> products = productRepository.findTop4ByStatusOrderByCreatedAtDesc(ProductEntity.Status.ACTIVE)
-                .stream()
-                .map(ProductDTO::fromEntity)
-                .collect(Collectors.toList());
-        
+        List<ProductDTO> products = productService.getNewArrivals();
         return ResponseEntity.ok(products);
     }
 

@@ -3,10 +3,13 @@ package com.thanhpro0703.SamNgocLinhPJ.controller;
 import com.thanhpro0703.SamNgocLinhPJ.dto.LoginRequestDTO;
 import com.thanhpro0703.SamNgocLinhPJ.dto.RegisterRequestDTO;
 import com.thanhpro0703.SamNgocLinhPJ.entity.UserEntity;
+import com.thanhpro0703.SamNgocLinhPJ.exception.BadRequestException;
+import com.thanhpro0703.SamNgocLinhPJ.exception.RateLimitExceededException;
 import com.thanhpro0703.SamNgocLinhPJ.service.AuthService;
 import com.thanhpro0703.SamNgocLinhPJ.service.OTPService;
 import com.thanhpro0703.SamNgocLinhPJ.service.RateLimitService;
 import com.thanhpro0703.SamNgocLinhPJ.util.ApiResponse;
+import com.thanhpro0703.SamNgocLinhPJ.util.RequestUtils;
 import io.github.bucket4j.Bandwidth;
 import io.github.bucket4j.Bucket;
 import io.github.bucket4j.Bucket4j;
@@ -14,16 +17,15 @@ import io.github.bucket4j.Refill;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
-import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.web.bind.annotation.*;
-import org.springframework.web.server.ResponseStatusException;
 import java.time.Duration;
 import java.util.HashMap;
 import java.util.Map;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import com.thanhpro0703.SamNgocLinhPJ.exception.ResourceNotFoundException;
 
 @RestController
 @RequestMapping("/api/auth")
@@ -31,204 +33,260 @@ import org.slf4j.LoggerFactory;
 public class AuthController {
     private final AuthService authService;
     private final OTPService otpService;
-    private final PasswordEncoder passwordEncoder;
     private final RateLimitService rateLimitService;
     private static final Logger log = LoggerFactory.getLogger(AuthController.class);
 
-    // Rate limiting configuration
-    private final Bucket loginBucket = Bucket4j.builder()
-        .addLimit(Bandwidth.classic(5, Refill.intervally(5, Duration.ofMinutes(1))))
-        .build();
-
-    private final Bucket registerBucket = Bucket4j.builder()
-        .addLimit(Bandwidth.classic(3, Refill.intervally(3, Duration.ofMinutes(1))))
-        .build();
-
-    private final Bucket otpBucket = Bucket4j.builder()
-        .addLimit(Bandwidth.classic(2, Refill.intervally(2, Duration.ofMinutes(1))))
-        .build();
-
     /**
-     * Gửi OTP
+     * Gửi OTP - Nhận JSON request
      */
-    @PostMapping("/send-otp")
-    public ResponseEntity<ApiResponse> sendOtp(@RequestBody Map<String, String> request, HttpServletRequest httpRequest) {
-        String clientIp = getClientIp(httpRequest);
-        if (!otpBucket.tryConsume(1)) {
-            log.warn("Rate limit exceeded for OTP request from IP: {}", clientIp);
-            return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
-                .body(new ApiResponse(false, "Quá nhiều yêu cầu. Vui lòng thử lại sau 1 phút."));
+    @PostMapping(value = "/send-otp", consumes = "application/json", produces = "application/json")
+    public ResponseEntity<ApiResponse> sendOtpJson(@RequestBody Map<String, String> request, 
+                                               HttpServletRequest httpRequest) {
+        rateLimitService.checkRateLimit("otp", httpRequest);
+
+        String email = request.get("email");
+        
+        if (email == null || email.isEmpty()) {
+            throw new BadRequestException("Email không được để trống!");
         }
 
-        try {
-            String email = request.get("email");
-            if (email == null || email.isEmpty()) {
-                return ResponseEntity.status(HttpStatus.BAD_REQUEST)
-                    .body(new ApiResponse(false, "Email không được để trống!"));
-            }
-
-            otpService.sendOtp(email);
-            log.info("OTP sent successfully to email");
-            return ResponseEntity.ok(new ApiResponse(true, "Mã OTP đã được gửi đến email của bạn!"));
-        } catch (Exception e) {
-            log.error("Error sending OTP: {}", e.getMessage());
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                .body(new ApiResponse(false, "Có lỗi xảy ra khi gửi OTP. Vui lòng thử lại sau."));
-        }
+        otpService.sendOtp(email);
+        log.info("OTP sent successfully to email: {}", email);
+        return ResponseEntity.ok(new ApiResponse(true, "Mã OTP đã được gửi đến email của bạn!"));
     }
 
-    @PostMapping("/verify-otp")
+    /**
+     * Gửi OTP - Nhận text/plain request
+     */
+    @PostMapping(value = "/send-otp", consumes = "text/plain", produces = "application/json")
+    public ResponseEntity<ApiResponse> sendOtpPlain(@RequestBody String email, 
+                                               HttpServletRequest httpRequest) {
+        rateLimitService.checkRateLimit("otp", httpRequest);
+
+        if (email == null || email.isEmpty()) {
+            throw new BadRequestException("Email không được để trống!");
+        }
+
+        String trimmedEmail = email.trim();
+        otpService.sendOtp(trimmedEmail);
+        log.info("OTP sent successfully to email: {}", trimmedEmail);
+        return ResponseEntity.ok(new ApiResponse(true, "Mã OTP đã được gửi đến email của bạn!"));
+    }
+
+    @PostMapping(value = "/verify-otp", produces = "application/json")
     public ResponseEntity<ApiResponse> verifyOtp(
         @RequestBody Map<String, String> request,
         HttpServletRequest httpRequest
     ) {
-        String clientIp = getClientIp(httpRequest);
-        if (!otpBucket.tryConsume(1)) {
-            log.warn("Rate limit exceeded for OTP verification from IP: {}", clientIp);
-            return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
-                .body(new ApiResponse(false, "Quá nhiều yêu cầu. Vui lòng thử lại sau 1 phút."));
+        rateLimitService.checkRateLimit("otp", httpRequest);
+
+        String email = request.get("email");
+        String otp = request.get("otp");
+
+        if (email == null || email.isEmpty() || otp == null || otp.isEmpty()) {
+            throw new BadRequestException("Email và mã OTP không được để trống!");
         }
 
-        try {
-            String email = request.get("email");
-            String otp = request.get("otp");
-
-            if (email == null || email.isEmpty() || otp == null || otp.isEmpty()) {
-                return ResponseEntity.status(HttpStatus.BAD_REQUEST)
-                    .body(new ApiResponse(false, "Email và mã OTP không được để trống!"));
-            }
-
-            if (otpService.verifyOtp(email, otp)) {
-                otpService.markVerified(email);
-                log.info("OTP verified successfully");
-                return ResponseEntity.ok(new ApiResponse(true, "Xác thực OTP thành công!"));
-            }
-            log.warn("Invalid OTP attempt");
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
-                .body(new ApiResponse(false, "OTP không hợp lệ hoặc đã hết hạn!"));
-        } catch (Exception e) {
-            log.error("Error verifying OTP: {}", e.getMessage());
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                .body(new ApiResponse(false, "Có lỗi xảy ra khi xác thực OTP. Vui lòng thử lại sau."));
-        }
+        otpService.verifyOtp(email, otp); // Nếu không hợp lệ, service sẽ ném BadRequestException
+        // Không cần kiểm tra giá trị trả về nữa
+        log.info("OTP verified successfully for email: {}", email);
+        return ResponseEntity.ok(new ApiResponse(true, "Xác thực OTP thành công!"));
     }
 
     /**
      * Đăng ký người dùng mới
      */
-    @PostMapping("/register")
+    @PostMapping(value = "/register", produces = "application/json")
     public ResponseEntity<ApiResponse> register(@Valid @RequestBody RegisterRequestDTO request, HttpServletRequest httpRequest) {
-        String clientIp = getClientIp(httpRequest);
-        if (!registerBucket.tryConsume(1)) {
-            log.warn("Rate limit exceeded for registration from IP: {}", clientIp);
-            return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
-                    .body(new ApiResponse(false, "Quá nhiều yêu cầu. Vui lòng thử lại sau."));
-        }
+        rateLimitService.checkRateLimit("register", httpRequest);
 
-        try {
-            // Kiểm tra rate limit
-            if (rateLimitService.isRateLimited(request.getEmail())) {
-                return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
-                        .body(new ApiResponse(false, "Quá nhiều yêu cầu. Vui lòng thử lại sau."));
-            }
-
-            // Kiểm tra email đã được xác thực OTP
-            if (!otpService.isVerified(request.getEmail())) {
-                // Thử xác thực OTP được gửi trong request
-                if (request.getOtp() != null && !request.getOtp().isEmpty()) {
-                    if (otpService.verifyOtp(request.getEmail(), request.getOtp())) {
-                        log.info("OTP verification succeeded during registration");
-                    } else {
-                        return ResponseEntity.badRequest()
-                            .body(new ApiResponse(false, "Mã OTP không hợp lệ hoặc đã hết hạn."));
-                    }
-                } else {
-                    return ResponseEntity.badRequest()
-                            .body(new ApiResponse(false, "Email chưa được xác thực. Vui lòng xác thực OTP trước khi đăng ký."));
-                }
-            }
-
-            // Đăng ký người dùng
-            UserEntity user = authService.registerUser(
-                request.getName(),
-                request.getEmail(),
-                request.getPassword(),
-                request.getPhone()
-            );
-            return ResponseEntity.ok(new ApiResponse(true, "Đăng ký thành công", user));
-        } catch (Exception e) {
-            log.error("Error during registration: {}", e.getMessage());
-            return ResponseEntity.badRequest()
-                    .body(new ApiResponse(false, e.getMessage()));
-        }
+        UserEntity user = authService.registerUser(
+            request.getName(),
+            request.getEmail(),
+            request.getPassword(),
+            request.getPhone()
+        );
+        log.info("User registered successfully: {}", user.getEmail());
+        return ResponseEntity.ok(new ApiResponse(true, "Đăng ký thành công", user));
     }
 
     /**
      * Đăng nhập và nhận token
      */
-    @PostMapping("/login")
+    @PostMapping(value = "/login", produces = "application/json")
     public ResponseEntity<ApiResponse> login(
         @Valid @RequestBody LoginRequestDTO request,
         HttpServletRequest httpRequest
     ) {
-        String clientIp = getClientIp(httpRequest);
-        if (!loginBucket.tryConsume(1)) {
-            log.warn("Rate limit exceeded for login from IP: {}", clientIp);
-            return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
-                .body(new ApiResponse(false, "Quá nhiều yêu cầu đăng nhập. Vui lòng thử lại sau 1 phút."));
-        }
+        rateLimitService.checkRateLimit("login", httpRequest);
 
-        try {
-            String token = authService.loginUser(request.getEmail(), request.getPassword());
-            
-            if (token == null) {
-                log.warn("Failed login attempt");
-                return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
-                    .body(new ApiResponse(false, "Email hoặc mật khẩu không đúng"));
-            }
-
-            log.info("User logged in successfully");
-            
-            Map<String, String> responseData = new HashMap<>();
-            responseData.put("token", token);
-            
-            return ResponseEntity.ok(new ApiResponse(true, "Đăng nhập thành công!", responseData));
-        } catch (Exception e) {
-            log.error("Error during login: {}", e.getMessage());
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                .body(new ApiResponse(false, "Có lỗi xảy ra khi đăng nhập. Vui lòng thử lại sau."));
-        }
+        Map<String, Object> authResult = authService.loginUser(request.getEmail(), request.getPassword(), httpRequest, request.getRememberMe());
+        log.info("User logged in successfully: {}", request.getEmail());
+        return ResponseEntity.ok(new ApiResponse(true, "Đăng nhập thành công!", authResult));
     }
 
     /**
      * Đăng xuất (Xóa session)
      */
-    @PostMapping("/logout")
+    @PostMapping(value = "/logout", produces = "application/json")
     public ResponseEntity<ApiResponse> logout(HttpServletRequest request) {
-        try {
-            String token = request.getHeader("Authorization");
-            if (token != null && token.startsWith("Bearer ")) {
-                token = token.substring(7);
-                authService.logoutUser(token);
-                log.info("User logged out successfully");
-            }
-            return ResponseEntity.ok(new ApiResponse(true, "Đăng xuất thành công!"));
-        } catch (Exception e) {
-            log.error("Error during logout: {}", e.getMessage());
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                .body(new ApiResponse(false, "Có lỗi xảy ra khi đăng xuất. Vui lòng thử lại sau."));
+        String token = RequestUtils.extractTokenFromHeader(request);
+        if (token != null) {
+            authService.logoutUser(token);
+            log.info("Logout request processed for token (if valid).");
+        } else {
+            log.warn("Logout attempt without valid Authorization header.");
         }
+        return ResponseEntity.ok(new ApiResponse(true, "Đăng xuất thành công!"));
+    }
+
+    /**
+     * Kiểm tra token có hợp lệ không (thường dùng cho middleware hoặc kiểm tra nhanh)
+     */
+    @PostMapping(value = "/verify-token", produces = "application/json")
+    public ResponseEntity<ApiResponse> verifyToken(@RequestBody Map<String, String> request) {
+        String token = request.get("token");
+        if (token == null || token.isEmpty()) {
+            throw new BadRequestException("Token không được để trống");
+        }
+            
+        // authService.verifyToken sẽ ném UnauthorizedException nếu không tồn tại
+        // và trả về false nếu hết hạn. Cần xử lý cả hai trường hợp.
+        boolean isValid = authService.verifyToken(token); 
+            
+        if (isValid) {
+            // Nếu hợp lệ, lấy thông tin session (có thể ném ResourceNotFoundException)
+            Map<String, Object> sessionInfo = authService.getSessionInfo(token);
+            log.info("Token verified successfully: {}", token);
+            return ResponseEntity.ok(new ApiResponse(true, "Token hợp lệ", sessionInfo));
+        } else {
+            // Nếu verifyToken trả về false (do hết hạn)
+            // Hoặc nếu nó ném UnauthorizedException (do không tồn tại) - GlobalExceptionHandler sẽ bắt lỗi này
+            // Chúng ta chỉ cần xử lý trường hợp trả về false ở đây
+            throw new com.thanhpro0703.SamNgocLinhPJ.exception.UnauthorizedException("Token không hợp lệ hoặc đã hết hạn");
+        }
+        // Các lỗi khác (ví dụ: ResourceNotFound khi lấy sessionInfo) sẽ do GlobalExceptionHandler xử lý
+    }
+
+    /**
+     * Kiểm tra token hợp lệ (trả về boolean, không cần authentication)
+     */
+    @PostMapping(value = "/check-token", produces = "application/json")
+    public ResponseEntity<ApiResponse> checkToken(@RequestBody Map<String, String> request) {
+         String token = request.get("token");
+        if (token == null || token.isEmpty()) {
+            throw new BadRequestException("Token không được để trống");
+        }
+            
+        // Cải thiện để trả về thông tin chi tiết hơn về token
+        Map<String, Object> data = new HashMap<>();
+        data.put("valid", false);
+        data.put("timestamp", System.currentTimeMillis());
+        
+        try {
+             boolean isValid = authService.verifyToken(token);
+             data.put("valid", isValid);
+             
+             if (isValid) {
+                 // Bổ sung thêm thông tin về thời hạn của token
+                 Map<String, Object> sessionInfo = authService.getSessionInfo(token);
+                 Map<String, Object> sessionDetails = (Map<String, Object>) sessionInfo.get("session");
+                 
+                 // Thêm thông tin chi tiết về session
+                 data.put("expiresAt", sessionDetails.get("expiresAt"));
+                 data.put("lastActivity", sessionDetails.get("lastActivity"));
+                 
+                 // Không gửi thông tin người dùng chi tiết để bảo mật
+                 Map<String, Object> userInfo = (Map<String, Object>) sessionInfo.get("user");
+                 data.put("userId", userInfo.get("id"));
+             }
+        } catch (com.thanhpro0703.SamNgocLinhPJ.exception.UnauthorizedException e) {
+             // Token không tồn tại trong DB -> không hợp lệ
+             data.put("valid", false);
+             data.put("error", "token_not_found");
+             log.debug("Token not found during check: {}", token);
+        } catch (Exception e) {
+             // Lỗi khác không mong muốn, log và coi như không hợp lệ
+             log.error("Unexpected error checking token: {}", e.getMessage());
+             data.put("valid", false);
+             data.put("error", "server_error");
+        }
+            
+        // Luôn trả về OK, trạng thái hợp lệ nằm trong payload
+        return ResponseEntity.ok(new ApiResponse(data.get("valid").equals(true), 
+                                               data.get("valid").equals(true) ? "Token hợp lệ" : "Token không hợp lệ", 
+                                               data));
     }
     
     /**
-     * Lấy IP của client một cách an toàn
+     * Lấy thông tin người dùng hiện tại từ token
      */
-    private String getClientIp(HttpServletRequest request) {
-        String xForwardedForHeader = request.getHeader("X-Forwarded-For");
-        if (xForwardedForHeader != null && !xForwardedForHeader.isEmpty()) {
-            return xForwardedForHeader.split(",")[0].trim();
+    @GetMapping(value = "/profile", produces = "application/json")
+    public ResponseEntity<ApiResponse> getUserProfile(HttpServletRequest request) {
+        String token = RequestUtils.extractTokenFromHeader(request);
+        if (token == null || token.isEmpty()) {
+            throw new BadRequestException("Token không được cung cấp");
         }
-        return request.getRemoteAddr();
+        
+        try {
+            // Xác minh token và lấy thông tin người dùng
+            boolean isValid = authService.verifyToken(token);
+            if (!isValid) {
+                throw new com.thanhpro0703.SamNgocLinhPJ.exception.UnauthorizedException("Token không hợp lệ hoặc đã hết hạn");
+            }
+            
+            Map<String, Object> sessionInfo = authService.getSessionInfo(token);
+            Map<String, Object> userInfo = (Map<String, Object>) sessionInfo.get("user");
+            
+            log.info("Profile retrieved successfully for user ID: {}", userInfo.get("id"));
+            return ResponseEntity.ok(new ApiResponse(true, "Lấy thông tin người dùng thành công", userInfo));
+        } catch (Exception e) {
+            log.error("Error retrieving user profile: {}", e.getMessage());
+            throw e; // Để GlobalExceptionHandler xử lý
+        }
+    }
+
+    /**
+     * Kiểm tra token và quyền admin
+     */
+    @PostMapping(value = "/check-admin", produces = "application/json")
+    public ResponseEntity<ApiResponse> checkAdmin(@RequestBody Map<String, String> request) {
+        String token = request.get("token");
+        if (token == null || token.isEmpty()) {
+            throw new BadRequestException("Token không được để trống");
+        }
+            
+        // Kiểm tra token có hợp lệ không
+        try {
+            if (authService.verifyToken(token)) {
+                // Lấy thông tin user từ token
+                UserEntity user = authService.getUserByToken(token)
+                    .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy người dùng cho token này"));
+                
+                boolean isAdmin = user.getRole() == UserEntity.Role.ADMIN;
+                
+                Map<String, Object> data = new HashMap<>();
+                data.put("valid", true);
+                data.put("isAdmin", isAdmin);
+                data.put("username", user.getName());
+                data.put("email", user.getEmail());
+                data.put("role", user.getRole().name());
+                
+                return ResponseEntity.ok(new ApiResponse(true, "Token hợp lệ", data));
+            } else {
+                Map<String, Object> data = new HashMap<>();
+                data.put("valid", false);
+                data.put("isAdmin", false);
+                return ResponseEntity.ok(new ApiResponse(false, "Token không hợp lệ hoặc đã hết hạn", data));
+            }
+        } catch (Exception e) {
+            log.error("Lỗi khi kiểm tra token admin: {}", e.getMessage());
+            Map<String, Object> data = new HashMap<>();
+            data.put("valid", false);
+            data.put("isAdmin", false);
+            data.put("error", e.getMessage());
+            return ResponseEntity.ok(new ApiResponse(false, "Lỗi xác thực: " + e.getMessage(), data));
+        }
     }
 }
 

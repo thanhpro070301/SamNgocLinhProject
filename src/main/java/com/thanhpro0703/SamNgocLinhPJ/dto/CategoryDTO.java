@@ -48,24 +48,50 @@ public class CategoryDTO {
     }
 
     public static CategoryDTO fromEntity(CategoryEntity entity) {
+        if (entity == null) {
+            return null;
+        }
+        
         CategoryDTO dto = CategoryDTO.builder()
                 .id(entity.getId())
                 .name(entity.getName())
                 .slug(entity.getSlug())
                 .description(entity.getDescription())
-                .status(entity.getStatus().name())
+                .status(entity.getStatus() != null ? entity.getStatus().name() : null)
                 .createdAt(entity.getCreatedAt())
                 .build();
         
-        if (entity.getParent() != null) {
-            dto.setParentId(entity.getParent().getId());
-            dto.setParentName(entity.getParent().getName());
+        try {
+            if (entity.getParent() != null) {
+                dto.setParentId(entity.getParent().getId());
+                dto.setParentName(entity.getParent().getName());
+            }
+        } catch (Exception e) {
+            // Bỏ qua lỗi lazy loading khi truy cập parent
         }
         
-        if (entity.getSubCategories() != null && !entity.getSubCategories().isEmpty()) {
-            dto.setSubCategories(entity.getSubCategories().stream()
-                    .map(CategoryDTO::fromEntity)
-                    .collect(Collectors.toList()));
+        try {
+            if (entity.getSubCategories() != null && !entity.getSubCategories().isEmpty()) {
+                dto.setSubCategories(entity.getSubCategories().stream()
+                        .map(subCategory -> {
+                            try {
+                                // Tạo DTO đơn giản để tránh đệ quy vô hạn
+                                return CategoryDTO.builder()
+                                        .id(subCategory.getId())
+                                        .name(subCategory.getName())
+                                        .slug(subCategory.getSlug())
+                                        .status(subCategory.getStatus() != null ? 
+                                                subCategory.getStatus().name() : null)
+                                        .build();
+                            } catch (Exception e) {
+                                return null;
+                            }
+                        })
+                        .filter(subCatDto -> subCatDto != null)
+                        .collect(Collectors.toList()));
+            }
+        } catch (Exception e) {
+            // Bỏ qua lỗi lazy loading khi truy cập subcategories
         }
         
         return dto;

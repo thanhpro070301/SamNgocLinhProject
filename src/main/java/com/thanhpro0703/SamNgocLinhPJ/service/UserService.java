@@ -1,7 +1,7 @@
 package com.thanhpro0703.SamNgocLinhPJ.service;
 import com.thanhpro0703.SamNgocLinhPJ.dto.UserDTO;
 import com.thanhpro0703.SamNgocLinhPJ.entity.UserEntity;
-import com.thanhpro0703.SamNgocLinhPJ.reponsitory.UserRepository;
+import com.thanhpro0703.SamNgocLinhPJ.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;

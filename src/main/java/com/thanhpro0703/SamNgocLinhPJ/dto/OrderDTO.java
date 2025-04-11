@@ -1,5 +1,6 @@
 package com.thanhpro0703.SamNgocLinhPJ.dto;
 
+import com.fasterxml.jackson.annotation.JsonFormat;
 import com.thanhpro0703.SamNgocLinhPJ.entity.OrderEntity;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
@@ -50,8 +51,10 @@ public class OrderDTO {
     
     private String notes;
     
+    @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss", timezone = "Asia/Ho_Chi_Minh")
     private LocalDateTime createdAt;
     
+    @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss", timezone = "Asia/Ho_Chi_Minh")
     private LocalDateTime updatedAt;
     
     // Danh sách sản phẩm trong đơn hàng và số lượng tương ứng (sử dụng khi tạo đơn hàng)
@@ -74,9 +77,10 @@ public class OrderDTO {
     
     // Chuyển đổi từ Entity sang DTO (sử dụng khi trả về kết quả)
     public static OrderDTO fromEntity(OrderEntity order) {
+        Long userId = (order.getUser() != null) ? order.getUser().getId() : null;
         return OrderDTO.builder()
                 .id(order.getId())
-                .userId(order.getUser().getId())
+                .userId(userId)
                 .totalAmount(order.getTotalAmount())
                 .shippingFee(order.getShippingFee())
                 .status(order.getStatus())

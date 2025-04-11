@@ -2,7 +2,7 @@ package com.thanhpro0703.SamNgocLinhPJ.service;
 
 import com.thanhpro0703.SamNgocLinhPJ.dto.CategoryDTO;
 import com.thanhpro0703.SamNgocLinhPJ.entity.CategoryEntity;
-import com.thanhpro0703.SamNgocLinhPJ.reponsitory.CategoryRepository;
+import com.thanhpro0703.SamNgocLinhPJ.repository.CategoryRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
@@ -22,9 +22,28 @@ public class CategoryService {
     @Transactional(readOnly = true)
     public List<CategoryDTO> getAllCategories() {
         log.info("Lấy danh sách tất cả danh mục");
-        return categoryRepository.findAll().stream()
-                .map(CategoryDTO::fromEntity)
-                .collect(Collectors.toList());
+        try {
+            return categoryRepository.findAll().stream()
+                    .map(entity -> {
+                        try {
+                            return CategoryDTO.fromEntity(entity);
+                        } catch (Exception e) {
+                            log.error("Lỗi khi chuyển đổi CategoryEntity sang DTO: {}", e.getMessage());
+                            CategoryDTO dto = new CategoryDTO();
+                            dto.setId(entity.getId());
+                            dto.setName(entity.getName());
+                            dto.setSlug(entity.getSlug());
+                            dto.setDescription(entity.getDescription());
+                            dto.setStatus(entity.getStatus() != null ? entity.getStatus().name() : null);
+                            dto.setCreatedAt(entity.getCreatedAt());
+                            return dto;
+                        }
+                    })
+                    .collect(Collectors.toList());
+        } catch (Exception e) {
+            log.error("Lỗi khi lấy danh sách danh mục: {}", e.getMessage(), e);
+            return List.of(); // Trả về danh sách rỗng thay vì lỗi
+        }
     }
 
 

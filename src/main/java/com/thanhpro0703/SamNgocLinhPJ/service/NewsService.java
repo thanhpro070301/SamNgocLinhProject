@@ -1,7 +1,7 @@
 package com.thanhpro0703.SamNgocLinhPJ.service;
 
 import com.thanhpro0703.SamNgocLinhPJ.entity.NewsEntity;
-import com.thanhpro0703.SamNgocLinhPJ.reponsitory.NewsRepository;
+import com.thanhpro0703.SamNgocLinhPJ.repository.NewsRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
